@@ -79,8 +79,11 @@ jobs:
         run: |
           command -v doppler >/dev/null || brew install dopplerhq/cli/doppler
           ENV_FILE=$(mktemp)
-          trap 'rm -f "$ENV_FILE"' EXIT
-          doppler secrets download --no-file --format docker > "$ENV_FILE"
+          # 러너는 Mac mini 사용자 계정으로 돈다. 누가 이 Mac에서 doppler login을 해두면
+          # CLI가 키체인의 로그인 정보를 읽으려다 실패하므로, 빈 설정 폴더를 써서 DOPPLER_TOKEN만 쓰게 한다.
+          DOPPLER_DIR=$(mktemp -d)
+          trap 'rm -f "$ENV_FILE"; rm -rf "$DOPPLER_DIR"' EXIT
+          doppler secrets download --no-file --format docker --no-check-version --config-dir "$DOPPLER_DIR" > "$ENV_FILE"
 
           docker rm -f $CONTAINER 2>/dev/null || true
           docker run -d \
