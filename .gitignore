@@ -46,3 +46,6 @@ next-env.d.ts
 
 # claude local settings
 .claude/settings.local.json
+
+# Prisma 생성 코드 (빌드 때 prisma generate로 만든다)
+/src/generated/

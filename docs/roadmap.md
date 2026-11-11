@@ -6,7 +6,7 @@
 
 - [x] GitHub 저장소 생성: https://github.com/mitl-feedmysheep/tutoring
 - [x] Cloudflare Tunnel에 `tutoring.intotheheaven.app` → `localhost:3010` 추가
-- [x] Doppler 프로젝트 생성: `tutoring-webapp` (prd)
+- [x] Doppler 프로젝트 생성: `tutoring` (prd)
 - [x] Doppler prd 서비스 토큰 → GitHub 저장소 Secrets에 `DOPPLER_TOKEN`으로 등록
 - [x] R2 비공개 버킷 생성
 - [x] R2 버킷(`tutoring-prod`) 전용 토큰(개체 읽기 및 쓰기) 발급 → Doppler prd 등록, CORS 설정
@@ -16,13 +16,14 @@
 
 - [x] Next.js 프로젝트 생성, mitl admin 설정 가져오기 (Tailwind, shadcn 설정, ESLint, vitest)
 - [x] git 초기화, 첫 커밋, push
-- [ ] MySQL에 `tutoring` 스키마와 전용 계정 생성 (2단계 시작 때)
+- [x] MySQL에 `tutoring` 스키마와 전용 계정 생성 (2단계 시작 때)
 - [x] Dockerfile, GitHub Actions 배포 워크플로 (포트 3010)
 - [x] 빈 페이지를 실제 도메인에 배포해서 파이프라인 확인
 
 ## 2단계. DB 설계와 인증
 
-- [ ] DB 스키마 설계 (격리 규칙 포함) → Prisma 마이그레이션
+- [x] DB 스키마 설계 (격리 규칙 포함) → Prisma 마이그레이션
+- [x] Doppler prd에 `DATABASE_URL` 등록
 - [ ] 선생님 계정 생성 스크립트
 - [ ] 로그인, 학생 초대 링크, 가입, 비밀번호 초기화와 강제 변경
 - [ ] 선생님 범위 강제 계층 + 선생님 간 접근 차단 테스트

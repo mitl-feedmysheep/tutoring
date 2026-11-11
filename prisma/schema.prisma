@@ -1,0 +1,393 @@
+// DB 설계: docs/db-design.md
+// 규칙
+// - 모든 테이블: id(UUID v7), created_at, updated_at, deleted_at(소프트 삭제)
+// - 선생님 소유 테이블은 teacher_id를 가지고, 부모와 (teacher_id, id) 복합 외래키로 연결한다 (격리)
+// - 외래키는 모두 RESTRICT. 소프트 삭제라 DB 연쇄 삭제는 쓰지 않는다
+// - 시각은 UTC (DATETIME(3)), KST 날짜는 DATE
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum Attendance {
+  COMPLETED
+  ABSENT
+}
+
+enum Author {
+  TEACHER
+  STUDENT
+}
+
+enum ScheduleAction {
+  ADD
+  CANCEL
+  MOVE
+  CHANGE
+  REMOVE
+}
+
+enum ChangedBy {
+  STUDENT
+  TEACHER
+  SYSTEM
+}
+
+enum FileKind {
+  STUDY_PHOTO
+  MATERIAL
+}
+
+/// 선생님 = 테넌트
+model Teacher {
+  id                 String    @id @default(uuid(7)) @db.Char(36)
+  name               String    @db.VarChar(50)
+  email              String    @unique @db.VarChar(100)
+  passwordHash       String    @map("password_hash") @db.VarChar(100)
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  sessionVersion     Int       @default(0) @map("session_version")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt          DateTime? @map("deleted_at") @db.DateTime(3)
+
+  students    Student[]
+  invites     Invite[]
+  weeklySlots WeeklySlot[]
+  slots       Slot[]
+  studyLogs   StudyLog[]
+  files       File[]
+
+  @@map("teacher")
+}
+
+model Student {
+  id                 String    @id @default(uuid(7)) @db.Char(36)
+  teacherId          String    @map("teacher_id") @db.Char(36)
+  name               String    @db.VarChar(50)
+  birthYear          Int       @map("birth_year") @db.SmallInt
+  gender             Gender
+  /// 비활성화·삭제 때 뒤에 _deleted_{밀리초}를 붙인다. 가입 입력은 100자 제한
+  email              String    @unique @db.VarChar(150)
+  passwordHash       String    @map("password_hash") @db.VarChar(100)
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  sessionVersion     Int       @default(0) @map("session_version")
+  occupation         String?   @db.VarChar(100)
+  deactivatedAt      DateTime? @map("deactivated_at") @db.DateTime(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt          DateTime? @map("deleted_at") @db.DateTime(3)
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  invites         Invite[]
+  weeklyLessons   WeeklyLesson[]
+  lessons         Lesson[]
+  scheduleChanges ScheduleChange[]
+  studyLogs       StudyLog[]
+  uploadedFiles   File[]           @relation("FileUploader")
+  fileAccesses    FileAccess[]
+  payments        Payment[]
+  boards          Board[]
+
+  @@unique([teacherId, id])
+  @@map("student")
+}
+
+/// 1회용 초대 링크 (1시간 만료, 선생님이 취소 가능)
+model Invite {
+  id        String    @id @default(uuid(7)) @db.Char(36)
+  teacherId String    @map("teacher_id") @db.Char(36)
+  /// 원본 토큰의 SHA-256. 원본은 링크에만 있다
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  memo      String?   @db.VarChar(50)
+  expiresAt DateTime  @map("expires_at") @db.DateTime(3)
+  revokedAt DateTime? @map("revoked_at") @db.DateTime(3)
+  usedAt    DateTime? @map("used_at") @db.DateTime(3)
+  studentId String?   @map("student_id") @db.Char(36)
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
+
+  teacher Teacher  @relation(fields: [teacherId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  student Student? @relation(fields: [teacherId, studentId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([teacherId, createdAt])
+  @@map("invite")
+}
+
+/// 선생님 고정 수업 시간 (매주 반복, KST)
+model WeeklySlot {
+  id          String    @id @default(uuid(7)) @db.Char(36)
+  teacherId   String    @map("teacher_id") @db.Char(36)
+  /// 0=일 ~ 6=토 (KST)
+  weekday     Int       @db.TinyInt
+  /// KST 자정부터 분 (19:00 = 1140)
+  startMinute Int       @map("start_minute") @db.SmallInt
+  endMinute   Int       @map("end_minute") @db.SmallInt
+  createdAt   DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt   DateTime? @map("deleted_at") @db.DateTime(3)
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  slots         Slot[]
+  weeklyLessons WeeklyLesson[]
+
+  @@unique([teacherId, id])
+  @@map("weekly_slot")
+}
+
+/// 그 날의 수업 시간 한 칸. 같은 시간 학생들이 공유한다
+model Slot {
+  id           String    @id @default(uuid(7)) @db.Char(36)
+  teacherId    String    @map("teacher_id") @db.Char(36)
+  /// NULL = 1회성 슬롯
+  weeklySlotId String?   @map("weekly_slot_id") @db.Char(36)
+  startsAt     DateTime  @map("starts_at") @db.DateTime(3)
+  endsAt       DateTime  @map("ends_at") @db.DateTime(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt    DateTime? @map("deleted_at") @db.DateTime(3)
+
+  teacher    Teacher     @relation(fields: [teacherId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  weeklySlot WeeklySlot? @relation(fields: [teacherId, weeklySlotId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  lessons Lesson[]
+
+  @@unique([teacherId, id])
+  @@unique([weeklySlotId, startsAt])
+  @@index([teacherId, startsAt])
+  @@map("slot")
+}
+
+/// 학생 고정 일정. 선생님 고정 시간 중에서 고른다
+model WeeklyLesson {
+  id           String    @id @default(uuid(7)) @db.Char(36)
+  teacherId    String    @map("teacher_id") @db.Char(36)
+  studentId    String    @map("student_id") @db.Char(36)
+  weeklySlotId String    @map("weekly_slot_id") @db.Char(36)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt    DateTime? @map("deleted_at") @db.DateTime(3)
+
+  student    Student    @relation(fields: [teacherId, studentId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+  weeklySlot WeeklySlot @relation(fields: [teacherId, weeklySlotId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  lessons         Lesson[]
+  scheduleChanges ScheduleChange[]
+
+  @@unique([teacherId, id])
+  @@index([studentId])
+  @@map("weekly_lesson")
+}
+
+/// 학생 1명의 그 날 수업 1회. 날짜·시간은 slot에 있다
+model Lesson {
+  id             String      @id @default(uuid(7)) @db.Char(36)
+  teacherId      String      @map("teacher_id") @db.Char(36)
+  slotId         String      @map("slot_id") @db.Char(36)
+  studentId      String      @map("student_id") @db.Char(36)
+  /// 고정 일정으로 만들어진 경우
+  weeklyLessonId String?     @map("weekly_lesson_id") @db.Char(36)
+  /// NULL = 미체크
+  attendance     Attendance?
+  /// 취소. 누가·왜는 schedule_change
+  canceledAt     DateTime?   @map("canceled_at") @db.DateTime(3)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt      DateTime?   @map("deleted_at") @db.DateTime(3)
+
+  slot         Slot          @relation(fields: [teacherId, slotId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+  student      Student       @relation(fields: [teacherId, studentId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+  weeklyLesson WeeklyLesson? @relation(fields: [teacherId, weeklyLessonId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  notes           LessonNote[]
+  scheduleChanges ScheduleChange[]
+
+  @@unique([teacherId, id])
+  @@unique([slotId, studentId])
+  @@index([teacherId, studentId])
+  @@map("lesson")
+}
+
+/// 일정 변경 이력. lesson_id(수업 1회)와 weekly_lesson_id(고정 일정) 중 정확히 하나 (CHECK는 마이그레이션 SQL)
+model ScheduleChange {
+  id             String         @id @default(uuid(7)) @db.Char(36)
+  teacherId      String         @map("teacher_id") @db.Char(36)
+  studentId      String         @map("student_id") @db.Char(36)
+  lessonId       String?        @map("lesson_id") @db.Char(36)
+  weeklyLessonId String?        @map("weekly_lesson_id") @db.Char(36)
+  action         ScheduleAction
+  /// 예: "11/11(화) 19:00", "매주 화 19:00~20:00"
+  beforeText     String?        @map("before_text") @db.VarChar(50)
+  afterText      String?        @map("after_text") @db.VarChar(50)
+  changedBy      ChangedBy      @map("changed_by")
+  /// 선생님이 바꿀 때 필수
+  reason         String?        @db.VarChar(200)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt      DateTime?      @map("deleted_at") @db.DateTime(3)
+
+  student      Student       @relation(fields: [teacherId, studentId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+  lesson       Lesson?       @relation(fields: [teacherId, lessonId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+  weeklyLesson WeeklyLesson? @relation(fields: [teacherId, weeklyLessonId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([teacherId, studentId, createdAt])
+  @@index([lessonId])
+  @@map("schedule_change")
+}
+
+/// 수업 노트. 수업 1회마다 선생님 1개, 학생 1개
+model LessonNote {
+  id        String    @id @default(uuid(7)) @db.Char(36)
+  teacherId String    @map("teacher_id") @db.Char(36)
+  lessonId  String    @map("lesson_id") @db.Char(36)
+  author    Author
+  content   String    @db.Text
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
+
+  lesson Lesson @relation(fields: [teacherId, lessonId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([lessonId, author])
+  @@map("lesson_note")
+}
+
+/// 공부 기록. student_id NULL = 선생님 본인 기록
+model StudyLog {
+  id        String    @id @default(uuid(7)) @db.Char(36)
+  teacherId String    @map("teacher_id") @db.Char(36)
+  studentId String?   @map("student_id") @db.Char(36)
+  /// KST 날짜
+  studyDate DateTime  @map("study_date") @db.Date
+  /// 5분 단위
+  minutes   Int       @db.SmallInt
+  memo      String?   @db.Text
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
+
+  teacher Teacher  @relation(fields: [teacherId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  student Student? @relation(fields: [teacherId, studentId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  photos File[]
+
+  @@unique([teacherId, id])
+  @@index([teacherId, studentId, studyDate])
+  @@map("study_log")
+}
+
+/// 업로드 파일 (공부 사진, 자료 PDF). R2 비공개 버킷
+model File {
+  id                String    @id @default(uuid(7)) @db.Char(36)
+  teacherId         String    @map("teacher_id") @db.Char(36)
+  /// NULL = 선생님이 올림
+  uploaderStudentId String?   @map("uploader_student_id") @db.Char(36)
+  kind              FileKind
+  studyLogId        String?   @map("study_log_id") @db.Char(36)
+  fileName          String    @map("file_name") @db.VarChar(200)
+  r2Key             String    @map("r2_key") @db.VarChar(200)
+  contentType       String    @map("content_type") @db.VarChar(100)
+  sizeBytes         Int       @map("size_bytes")
+  sortOrder         Int       @default(0) @map("sort_order") @db.TinyInt
+  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt         DateTime? @map("deleted_at") @db.DateTime(3)
+
+  teacher         Teacher   @relation(fields: [teacherId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  uploaderStudent Student?  @relation("FileUploader", fields: [teacherId, uploaderStudentId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+  studyLog        StudyLog? @relation(fields: [teacherId, studyLogId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  accesses FileAccess[]
+
+  @@unique([teacherId, id])
+  @@index([teacherId, kind, createdAt])
+  @@index([studyLogId])
+  @@map("file")
+}
+
+/// 자료를 학생별로 공개
+model FileAccess {
+  id        String    @id @default(uuid(7)) @db.Char(36)
+  teacherId String    @map("teacher_id") @db.Char(36)
+  fileId    String    @map("file_id") @db.Char(36)
+  studentId String    @map("student_id") @db.Char(36)
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
+
+  file    File    @relation(fields: [teacherId, fileId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+  student Student @relation(fields: [teacherId, studentId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([fileId, studentId])
+  @@index([teacherId, studentId])
+  @@map("file_access")
+}
+
+/// 과외비 납부. 행이 있으면(삭제 안 됨) 납부
+model Payment {
+  id        String    @id @default(uuid(7)) @db.Char(36)
+  teacherId String    @map("teacher_id") @db.Char(36)
+  studentId String    @map("student_id") @db.Char(36)
+  /// 그 달 1일
+  month     DateTime  @db.Date
+  paidAt    DateTime  @map("paid_at") @db.DateTime(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
+
+  student Student @relation(fields: [teacherId, studentId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([studentId, month])
+  @@index([teacherId, month])
+  @@map("payment")
+}
+
+/// 선생님-학생 1:1 게시판 글
+model Board {
+  id        String    @id @default(uuid(7)) @db.Char(36)
+  teacherId String    @map("teacher_id") @db.Char(36)
+  studentId String    @map("student_id") @db.Char(36)
+  author    Author
+  title     String    @db.VarChar(100)
+  content   String    @db.Text
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
+
+  student Student @relation(fields: [teacherId, studentId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  comments Comment[]
+
+  @@unique([teacherId, id])
+  @@index([teacherId, studentId, createdAt])
+  @@map("board")
+}
+
+/// 게시판 댓글
+model Comment {
+  id        String    @id @default(uuid(7)) @db.Char(36)
+  teacherId String    @map("teacher_id") @db.Char(36)
+  boardId   String    @map("board_id") @db.Char(36)
+  author    Author
+  content   String    @db.Text
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
+
+  board Board @relation(fields: [teacherId, boardId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([boardId, createdAt])
+  @@map("comment")
+}
