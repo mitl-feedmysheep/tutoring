@@ -10,7 +10,7 @@
 - [x] Doppler prd 서비스 토큰 → GitHub 저장소 Secrets에 `DOPPLER_TOKEN`으로 등록
 - [x] R2 비공개 버킷 생성
 - [x] R2 버킷(`tutoring-prod`) 전용 토큰(개체 읽기 및 쓰기) 발급 → Doppler prd 등록, CORS 설정
-- [ ] Google Cloud 프로젝트 + OAuth 클라이언트 생성 (6단계 전까지만 하면 됨)
+- [x] Google Cloud 프로젝트 + OAuth 클라이언트 생성, Doppler에 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` 등록
 
 ## 1단계. 뼈대와 배포 파이프라인
 
@@ -18,7 +18,7 @@
 - [x] git 초기화, 첫 커밋, push
 - [ ] MySQL에 `tutoring` 스키마와 전용 계정 생성 (2단계 시작 때)
 - [x] Dockerfile, GitHub Actions 배포 워크플로 (포트 3010)
-- [ ] 빈 페이지를 실제 도메인에 배포해서 파이프라인 확인
+- [x] 빈 페이지를 실제 도메인에 배포해서 파이프라인 확인
 
 ## 2단계. DB 설계와 인증
 
