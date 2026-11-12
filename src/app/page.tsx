@@ -7,7 +7,7 @@ export default async function Home() {
   const account = await requireUser();
   const isTeacher = account.claims.role === "teacher";
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col px-4 py-6">
+    <main className="mx-auto flex min-h-dvh max-w-lg flex-col bg-background px-4 py-6">
       <header className="flex items-center justify-between">
         <span className="font-semibold">Tutoring</span>
         <div className="flex gap-3 text-sm text-muted-foreground">

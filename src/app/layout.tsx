@@ -1,12 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -21,9 +16,12 @@ export const metadata: Metadata = {
   description: "영어 말하기 과외",
 };
 
+// 인투디헤븐 웹앱과 같이 앱처럼 쓰도록 확대를 막는다 (입력칸을 누를 때 화면이 커지는 것도 막힘)
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   themeColor: "#0f172a",
 };
 
@@ -34,7 +32,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <head>
+        {/* 한글 폰트. 인투디헤븐 웹앱과 같은 Pretendard (쓰는 글자만 받는 dynamic subset) */}
+        <link
+          rel="stylesheet"
+          crossOrigin="anonymous"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+        />
+      </head>
+      <body className={`${geistMono.variable} antialiased`}>
         {children}
         <Toaster position="top-center" richColors />
       </body>
