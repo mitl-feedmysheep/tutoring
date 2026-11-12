@@ -57,6 +57,7 @@
 | 로컬 접속 | `.env`의 `DATABASE_URL` (git 제외) |
 | 앱 컨테이너 접속 | `mysql://tutoring:...@host.docker.internal:3306/tutoring` (Doppler prd) |
 | Prisma | 7.10.1, 생성 코드 `src/generated/prisma` (git 제외, 빌드 때 생성) |
+| 테스트 DB | test-mysql 컨테이너(:3307)의 `tutoring_test`, 계정 `tutoring_test`. 로컬 `.env`와 GitHub 시크릿의 `TEST_DATABASE_URL` |
 
 - 스키마 변경: `prisma/schema.prisma` 수정 → `npm run db:migrate -- --name 이름` → 생성된 SQL 확인 후 커밋
 - 개발 환경이 따로 없으므로 마이그레이션은 이 Mac mini에서 운영 DB에 바로 적용된다. 컬럼 삭제처럼 되돌리기 어려운 변경은 SQL을 먼저 확인한다.
@@ -69,6 +70,26 @@
    → 다른 선생님의 학생·슬롯을 참조하는 행은 DB가 거부한다.
 3. 앱은 세션의 `teacher_id`와 `deleted_at IS NULL`이 자동으로 걸리는 계층을 통해서만 DB에 접근한다.
 4. 테이블마다 다른 선생님 데이터 접근 차단 테스트를 둔다.
+
+### 범위 계층 (`src/lib/db/scope.ts`)
+
+기능 코드는 세션 값으로 `teacherDb(teacherId)` 또는 `studentDb(teacherId, studentId)`를 만들어 쓴다. 범위 없는 `src/lib/db/client.ts`는 DB 계층, 인증(로그인·초대 토큰 확인), 스크립트, 테스트에서만 쓴다 (ESLint로 막음).
+
+| | 선생님 범위 | 학생 범위 |
+|---|---|---|
+| 조회 | 그 선생님 행, 지운 행 제외 | 위 + 본인 것만. 슬롯·고정 시간은 함께 봄. 초대 링크는 안 보임 |
+| 수업 노트 | 전부 | `author = 'STUDENT'`이고 본인 수업 |
+| 공부 기록 | 전부 (본인 기록 포함) | 본인 것 (선생님 본인 기록 제외) |
+| 파일 | 전부 | 본인이 올린 사진 + 본인에게 공개된 자료 |
+| 만들기 | `teacher_id` 자동 | 위 + `student_id`, `author = STUDENT` 등 자동. 연결하는 수업·글·공부 기록이 본인 것인지 확인 |
+| 쓰기 가능 | 전부 (선생님 계정 생성 제외) | 본인 정보, 고정 일정, 수업, 일정 변경, 학생 노트, 공부 기록, 사진, 게시판 글·댓글 |
+
+- include/select로 딸려오는 목록과 `_count`에도 같은 조건이 붙는다.
+- 범위 값과 다른 `teacher_id`·`student_id`를 넣거나 바꾸려 하면 오류.
+- `delete`는 막혀 있다. 소프트 삭제는 `update`로 `deletedAt`을 넣는다.
+- 관계 필드로 중첩 쓰기(`photos: { create }`, `connect`)는 막혀 있다. id 값으로 연결한다.
+- 직접 챙길 것: where 안의 관계 조건(`some`, `every`)에는 `deletedAt: null`을 넣는다. SQL 직접 실행(`$queryRaw`)은 쓰지 않는다.
+- 스키마에 관계를 추가하면 `RELATIONS`도 고친다. 안 고치면 테스트가 실패한다.
 
 **정규화와의 관계**: 자식의 `teacher_id`는 부모를 따라가면 알 수 있어서 3정규형 기준으로는 중복이다. 일부러 둔 것이다. 복합 외래키 때문에 부모와 다른 값은 들어갈 수 없어서 불일치는 생기지 않고, 대신 모든 쿼리에 `WHERE teacher_id = ?` 한 줄로 범위를 걸 수 있다.
 
@@ -122,8 +143,9 @@
 | name | VARCHAR(50) | |
 | email | VARCHAR(100) UNIQUE | 로그인 ID |
 | password_hash | VARCHAR(100) | bcrypt |
-| must_change_password | BOOLEAN | 스크립트로 만든 임시 비밀번호도 첫 로그인 때 변경 |
+| must_change_password | BOOLEAN | 어드민에서 임시 비밀번호로 만든 계정은 첫 로그인 때 변경 |
 | session_version | INT | 비밀번호 변경·초기화 때 +1 → 기존 로그인 무효화 |
+| is_admin | BOOLEAN | 시스템 관리자. 다른 선생님 계정을 만든다 (ADMIN-05) |
 
 ### student
 
@@ -241,7 +263,7 @@
 | content | TEXT | |
 
 - `UNIQUE (lesson_id, author)` — 수업 1회마다 선생님 노트 1개, 학생 노트 1개 (지웠다 다시 쓰면 되살림)
-- 학생 조회는 항상 `author = 'STUDENT'`. 공통 함수 + 테스트로 강제.
+- 학생 조회는 항상 `author = 'STUDENT'`. 범위 계층(`studentDb`)과 테스트로 강제.
 
 ### study_log (공부 기록, 학생 + 선생님 본인)
 

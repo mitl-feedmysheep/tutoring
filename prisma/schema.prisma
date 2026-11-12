@@ -56,6 +56,8 @@ model Teacher {
   passwordHash       String    @map("password_hash") @db.VarChar(100)
   mustChangePassword Boolean   @default(false) @map("must_change_password")
   sessionVersion     Int       @default(0) @map("session_version")
+  /// 시스템 관리자. 어드민에서 다른 선생님 계정을 만들 수 있다
+  isAdmin            Boolean   @default(false) @map("is_admin")
   createdAt          DateTime  @default(now()) @map("created_at") @db.DateTime(3)
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
   deletedAt          DateTime? @map("deleted_at") @db.DateTime(3)
