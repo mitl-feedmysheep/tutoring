@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCap, KeyRound, LogOut, Users } from "lucide-react";
+import { GraduationCap, KeyRound, LogOut, School, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/auth-actions";
 
 const NAV = [{ name: "학생 관리", href: "/admin/students", icon: Users }];
+// 시스템 관리자에게만 보인다. 화면과 액션에서도 따로 막는다
+const ADMIN_NAV = [{ name: "선생님 관리", href: "/admin/teachers", icon: School }];
 
 const itemClass = (active: boolean) =>
   cn(
@@ -14,7 +16,7 @@ const itemClass = (active: boolean) =>
     active ? "bg-indigo-600 text-white" : "text-slate-300 hover:bg-slate-800 hover:text-white",
   );
 
-export function Sidebar({ teacherName, onNavigate }: { teacherName: string; onNavigate?: () => void }) {
+export function Sidebar({ teacherName, isAdmin, onNavigate }: { teacherName: string; isAdmin: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
     <aside className="flex h-dvh w-64 flex-col bg-slate-900 text-white md:sticky md:top-0">
@@ -26,7 +28,7 @@ export function Sidebar({ teacherName, onNavigate }: { teacherName: string; onNa
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {NAV.map((item) => (
+        {(isAdmin ? [...NAV, ...ADMIN_NAV] : NAV).map((item) => (
           <Link
             key={item.href}
             href={item.href}

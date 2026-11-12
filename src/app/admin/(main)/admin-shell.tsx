@@ -6,18 +6,18 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 
 // 데스크톱은 왼쪽 고정 사이드바, 모바일은 왼쪽에서 열리는 서랍
-export function AdminShell({ teacherName, children }: { teacherName: string; children: React.ReactNode }) {
+export function AdminShell({ teacherName, isAdmin, children }: { teacherName: string; isAdmin: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="flex min-h-dvh bg-slate-50">
       <div className="hidden md:block">
-        <Sidebar teacherName={teacherName} />
+        <Sidebar teacherName={teacherName} isAdmin={isAdmin} />
       </div>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-64 gap-0 border-r-0 bg-slate-900 p-0 text-white [&>button]:text-white">
           <SheetTitle className="sr-only">메뉴</SheetTitle>
-          <Sidebar teacherName={teacherName} onNavigate={() => setOpen(false)} />
+          <Sidebar teacherName={teacherName} isAdmin={isAdmin} onNavigate={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
 

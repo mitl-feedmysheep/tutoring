@@ -21,13 +21,13 @@ export default async function InvitesPage() {
   const invites = await listInvites(db);
 
   return (
-    <div className="grid gap-8">
-      <section className="grid gap-3">
+    <div className="grid grid-cols-1 gap-8">
+      <section className="grid grid-cols-1 gap-3">
         <p className="text-sm text-muted-foreground">학생마다 링크를 하나씩 발급해요. 1시간 동안 한 번만 쓸 수 있어요.</p>
         <IssueInviteForm />
       </section>
 
-      <section className="grid gap-3">
+      <section className="grid grid-cols-1 gap-3">
         <h2 className="font-medium">발급한 링크</h2>
         {invites.length === 0 ? (
           <p className="text-sm text-muted-foreground">아직 발급한 링크가 없어요.</p>

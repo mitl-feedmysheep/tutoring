@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireTeacher } from "@/lib/auth/session";
+import { requireSystemAdmin, requireTeacher } from "@/lib/auth/session";
+import { createTeacherByAdmin } from "@/lib/auth/teachers";
 import { issueInvite, revokeInvite } from "@/lib/admin/invites";
 import { resetStudentPassword } from "@/lib/admin/students";
 
@@ -32,4 +33,18 @@ export async function resetPasswordAction(studentId: string) {
   const ok = await resetStudentPassword(db, studentId);
   revalidatePath("/admin/students");
   return ok;
+}
+
+export type CreateTeacherState = { created?: { name: string; email: string }; error?: string; values?: Record<string, string> } | undefined;
+
+export async function createTeacherAction(_: CreateTeacherState, form: FormData): Promise<CreateTeacherState> {
+  const { account } = await requireSystemAdmin();
+  const values = { name: String(form.get("name") ?? ""), email: String(form.get("email") ?? "") };
+  try {
+    const t = await createTeacherByAdmin(account, { ...values, password: String(form.get("password") ?? "") });
+    revalidatePath("/admin/teachers");
+    return { created: { name: t.name, email: t.email } };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "만들지 못했어요", values };
+  }
 }

@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { teacherDb, studentDb } from "@/lib/db/scope";
 import { loadAccount, type Account } from "./login";
 import { SESSION_DAYS, signSession, verifySession, type Area, type SessionClaims } from "./token";
@@ -58,6 +58,13 @@ export async function requireTeacher() {
   if (account.claims.role !== "teacher") redirect("/");
   const { teacherId } = account.claims;
   return { account, teacherId, db: teacherDb(teacherId) };
+}
+
+/** 시스템 관리자 전용 화면·액션 (ADMIN-05). 관리자가 아니면 그런 화면이 없는 것처럼 404 */
+export async function requireSystemAdmin() {
+  const teacher = await requireTeacher();
+  if (!teacher.account.isAdmin) notFound();
+  return teacher;
 }
 
 /** 웹앱의 학생 전용 화면·액션에서 쓴다 */

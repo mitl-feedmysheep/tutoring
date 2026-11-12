@@ -13,7 +13,7 @@ export default async function StudentsPage() {
   const students = await listStudents(db);
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       {students.length === 0 ? (
         <p className="text-sm text-muted-foreground">아직 가입한 학생이 없어요. 초대 링크 탭에서 링크를 발급해 학생에게 보내 주세요.</p>
       ) : (
