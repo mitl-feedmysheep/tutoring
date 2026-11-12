@@ -61,7 +61,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # 격리 테스트는 같은 Mac mini의 test-mysql(:3307) tutoring_test 스키마를 쓴다
       - name: Test
+        env:
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
         run: npm test
 
       - name: Build Docker image
