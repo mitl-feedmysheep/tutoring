@@ -27,6 +27,7 @@ async function createTenant() {
   const slot = await prisma.slot.create({
     data: { teacherId: t, weeklySlotId: weeklySlot.id, startsAt: new Date("2026-12-01T10:00:00Z"), endsAt: new Date("2026-12-01T11:00:00Z") },
   });
+  const monthlySlotHistory = await prisma.monthlySlotHistory.create({ data: { teacherId: t, month: new Date("2026-12-01") } });
   const weeklyLesson = await prisma.weeklyLesson.create({ data: { teacherId: t, studentId: s1.id, weeklySlotId: weeklySlot.id } });
   const lesson1 = await prisma.lesson.create({ data: { teacherId: t, slotId: slot.id, studentId: s1.id, weeklyLessonId: weeklyLesson.id } });
   const lesson2 = await prisma.lesson.create({ data: { teacherId: t, slotId: slot.id, studentId: s2.id } });
@@ -57,7 +58,7 @@ async function createTenant() {
   });
 
   return {
-    teacher, s1, s2, weeklySlot, slot, weeklyLesson, lesson1, lesson2, teacherNote, studentNote, otherNote,
+    teacher, s1, s2, weeklySlot, slot, monthlySlotHistory, weeklyLesson, lesson1, lesson2, teacherNote, studentNote, otherNote,
     scheduleChange, studyLog, ownStudyLog, photo, openMaterial, closedMaterial, fileAccess, payment, board, otherBoard,
     teacherComment, invite,
     /** 모델마다 이 선생님 소유인 행 하나 */
@@ -69,7 +70,7 @@ type Tenant = Awaited<ReturnType<typeof createTenant>>;
 
 function fillRows(x: Tenant) {
   x.rowOf = {
-    Teacher: x.teacher, Student: x.s1, Invite: x.invite, WeeklySlot: x.weeklySlot, Slot: x.slot, WeeklyLesson: x.weeklyLesson,
+    Teacher: x.teacher, Student: x.s1, Invite: x.invite, WeeklySlot: x.weeklySlot, Slot: x.slot, MonthlySlotHistory: x.monthlySlotHistory, WeeklyLesson: x.weeklyLesson,
     Lesson: x.lesson1, ScheduleChange: x.scheduleChange, LessonNote: x.teacherNote, StudyLog: x.studyLog, File: x.photo,
     FileAccess: x.fileAccess, Payment: x.payment, Board: x.board, Comment: x.teacherComment,
   };
@@ -249,12 +250,14 @@ describe("학생 범위", () => {
     expect((await db.comment.updateMany({ where: { id: A.teacherComment.id }, data: { content: "hack" } })).count).toBe(0);
   });
 
-  it("학생은 납부·슬롯·초대·자료 공개를 만들거나 바꿀 수 없다", async () => {
+  it("학생은 납부·슬롯·초대·자료 공개·월 생성 기록을 만들거나 바꿀 수 없다", async () => {
     const db = s1db();
     await expect(db.payment.create({ data: { month: new Date("2027-02-01"), paidAt: new Date() } as any })).rejects.toBeInstanceOf(ScopeError);
     await expect(db.payment.updateMany({ data: { paidAt: new Date() } })).rejects.toBeInstanceOf(ScopeError);
     await expect(db.slot.updateMany({ data: { deletedAt: new Date() } })).rejects.toBeInstanceOf(ScopeError);
     await expect(db.fileAccess.create({ data: { fileId: A.closedMaterial.id } as any })).rejects.toBeInstanceOf(ScopeError);
     await expect(db.invite.updateMany({ data: { revokedAt: new Date() } })).rejects.toBeInstanceOf(ScopeError);
+    await expect(db.monthlySlotHistory.create({ data: { month: new Date("2027-02-01") } as any })).rejects.toBeInstanceOf(ScopeError);
+    expect(await db.monthlySlotHistory.findMany()).toEqual([]);
   });
 });

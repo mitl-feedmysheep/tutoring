@@ -29,7 +29,7 @@ export function AdminShell({ teacherName, isAdmin, children }: { teacherName: st
           <span className="text-sm font-semibold">Tutoring</span>
         </header>
         <main className="flex-1">
-          <div className="mx-auto max-w-5xl p-4 sm:p-6">{children}</div>
+          <div className="mx-auto max-w-7xl p-4 sm:p-6">{children}</div>
         </main>
       </div>
     </div>

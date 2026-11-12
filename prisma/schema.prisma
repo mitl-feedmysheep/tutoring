@@ -62,12 +62,13 @@ model Teacher {
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
   deletedAt          DateTime? @map("deleted_at") @db.DateTime(3)
 
-  students    Student[]
-  invites     Invite[]
-  weeklySlots WeeklySlot[]
-  slots       Slot[]
-  studyLogs   StudyLog[]
-  files       File[]
+  students             Student[]
+  invites              Invite[]
+  weeklySlots          WeeklySlot[]
+  slots                Slot[]
+  studyLogs            StudyLog[]
+  files                File[]
+  monthlySlotHistories MonthlySlotHistory[]
 
   @@map("teacher")
 }
@@ -170,6 +171,22 @@ model Slot {
   @@unique([weeklySlotId, startsAt])
   @@index([teacherId, startsAt])
   @@map("slot")
+}
+
+/// 월 단위 일괄 생성 기록 (SCH-11). 행이 있으면 그 달은 이미 만들었다. 두 번 만들지 않기 위해 둔다
+model MonthlySlotHistory {
+  id        String    @id @default(uuid(7)) @db.Char(36)
+  teacherId String    @map("teacher_id") @db.Char(36)
+  /// 그 달 1일
+  month     DateTime  @db.Date
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([teacherId, month])
+  @@map("monthly_slot_history")
 }
 
 /// 학생 고정 일정. 선생님 고정 시간 중에서 고른다

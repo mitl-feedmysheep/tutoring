@@ -26,7 +26,7 @@ export type Scope =
 /** 모델별 관계. many = 목록, one = 단건. 스키마에 관계를 추가하면 여기도 추가한다 (테스트가 확인) */
 export const RELATIONS: Record<Model, { many: Record<string, Model>; one: Record<string, Model> }> = {
   Teacher: {
-    many: { students: "Student", invites: "Invite", weeklySlots: "WeeklySlot", slots: "Slot", studyLogs: "StudyLog", files: "File" },
+    many: { students: "Student", invites: "Invite", weeklySlots: "WeeklySlot", slots: "Slot", studyLogs: "StudyLog", files: "File", monthlySlotHistories: "MonthlySlotHistory" },
     one: {},
   },
   Student: {
@@ -46,6 +46,7 @@ export const RELATIONS: Record<Model, { many: Record<string, Model>; one: Record
   Invite: { many: {}, one: { teacher: "Teacher", student: "Student" } },
   WeeklySlot: { many: { slots: "Slot", weeklyLessons: "WeeklyLesson" }, one: { teacher: "Teacher" } },
   Slot: { many: { lessons: "Lesson" }, one: { teacher: "Teacher", weeklySlot: "WeeklySlot" } },
+  MonthlySlotHistory: { many: {}, one: { teacher: "Teacher" } },
   WeeklyLesson: {
     many: { lessons: "Lesson", scheduleChanges: "ScheduleChange" },
     one: { student: "Student", weeklySlot: "WeeklySlot" },
@@ -94,6 +95,7 @@ export function readFilter(model: Model, scope: Scope): Where {
     case "Student":
       return { ...base, id: sid };
     case "Invite":
+    case "MonthlySlotHistory":
       return NONE;
     case "StudyLog": // student_id NULL(선생님 본인 기록)은 빠진다
     case "WeeklyLesson":

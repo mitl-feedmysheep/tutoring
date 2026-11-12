@@ -4,17 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const TABS = [
-  { name: "학생 목록", href: "/admin/students" },
-  { name: "초대 링크", href: "/admin/students/invites" },
-];
-
-// 탭마다 주소가 달라서 새로고침·뒤로 가기에도 같은 탭이 열린다
-export function StudentTabs() {
+// 어드민 화면 위쪽 탭. 탭마다 주소가 달라서 새로고침·뒤로 가기에도 같은 탭이 열린다
+export function PageTabs({ tabs }: { tabs: { name: string; href: string }[] }) {
   const pathname = usePathname();
   return (
     <nav className="flex gap-6 border-b">
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const active = pathname === tab.href;
         return (
           <Link
