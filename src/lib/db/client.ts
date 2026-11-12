@@ -14,6 +14,15 @@ function createClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createClient();
+function getClient() {
+  return (globalForPrisma.prisma ??= createClient());
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// 처음 쓸 때 만든다. Docker 빌드처럼 DATABASE_URL이 없는 곳에서 import만 해도 터지지 않게
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_, prop) {
+    const client = getClient();
+    const value = Reflect.get(client, prop);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
