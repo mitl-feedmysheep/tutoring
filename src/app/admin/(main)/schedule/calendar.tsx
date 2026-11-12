@@ -41,15 +41,18 @@ type Props = {
 /** 월요일부터 */
 const COLUMNS = [1, 2, 3, 4, 5, 6, 0];
 
-const DESKTOP = "(min-width: 1024px)";
-function useIsDesktop() {
+/** 오른쪽 패널을 달력 옆에 고정으로 두는 폭 (xl). 그보다 좁으면 눌렀을 때 패널이 밀려 나온다 */
+const DESKTOP = "(min-width: 1280px)";
+/** 태블릿은 오른쪽에서, 폰은 아래에서 */
+const TABLET = "(min-width: 768px)";
+function useMedia(query: string) {
   return useSyncExternalStore(
     (onChange) => {
-      const m = window.matchMedia(DESKTOP);
+      const m = window.matchMedia(query);
       m.addEventListener("change", onChange);
       return () => m.removeEventListener("change", onChange);
     },
-    () => window.matchMedia(DESKTOP).matches,
+    () => window.matchMedia(query).matches,
     () => true,
   );
 }
@@ -66,10 +69,11 @@ const slotColor = (s: CalendarSlot) =>
 
 /**
  * 달력 + 상세 패널. 날짜 칸에는 슬롯 카드(시작 시간·예약 인원)만 두고, 누르면 오른쪽 패널에 자세히 보여 준다.
- * 폰에서는 칸이 좁아서 카드 대신 점으로 보여 주고, 패널은 아래에서 올라온다
+ * 넓은 PC는 패널이 달력 옆에 고정, 태블릿은 오른쪽에서 밀려 나오고, 폰은 아래에서 올라온다 (폰은 칸이 좁아서 카드 대신 점)
  */
 export function ScheduleCalendar({ year, month, today, prevKey, nextKey, thisMonthKey, notGeneratedYet, slots }: Props) {
-  const isDesktop = useIsDesktop();
+  const isDesktop = useMedia(DESKTOP);
+  const isTablet = useMedia(TABLET);
   const [selection, setSelection] = useState<Selection>(today.startsWith(`${year}-${String(month).padStart(2, "0")}`) ? { kind: "date", date: today } : null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -96,7 +100,7 @@ export function ScheduleCalendar({ year, month, today, prevKey, nextKey, thisMon
   const panel = <DetailPanel selection={selection} slots={slots} byDate={byDate} today={today} onSelect={setSelection} />;
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
       <section className="grid min-w-0 grid-cols-1 content-start gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1">
@@ -160,7 +164,7 @@ export function ScheduleCalendar({ year, month, today, prevKey, nextKey, thisMon
                   onClick={() => select({ kind: "date", date })}
                   className={cn(
                     border,
-                    "min-h-16 cursor-pointer p-1 transition-colors hover:bg-slate-50 sm:min-h-28 sm:p-1.5",
+                    "@container min-h-16 min-w-0 cursor-pointer p-1 transition-colors hover:bg-slate-50 sm:min-h-28 sm:p-1.5",
                     isPast && "bg-slate-50/60",
                     selectedDate === date && "bg-indigo-50/70 hover:bg-indigo-50/70",
                   )}
@@ -193,14 +197,18 @@ export function ScheduleCalendar({ year, month, today, prevKey, nextKey, thisMon
                           select({ kind: "slot", id: s.id });
                         }}
                         className={cn(
-                          "flex items-center justify-between gap-1 rounded border px-1.5 py-0.5 text-left text-xs tabular-nums transition-shadow hover:shadow-sm",
+                          "flex min-w-0 items-center justify-between gap-1 overflow-hidden rounded border px-1 py-0.5 text-left text-xs whitespace-nowrap tabular-nums transition-shadow hover:shadow-sm @[88px]:px-1.5",
                           slotColor(s),
                           s.past && "opacity-50",
                           selectedSlotId === s.id && "ring-2 ring-indigo-500 ring-offset-1",
                         )}
                       >
                         <span className="font-medium">{formatMinute(s.start)}</span>
-                        <span className={cn(s.students.length === 0 && "opacity-50")}>{s.students.length}명</span>
+                        {/* 칸이 좁으면 "명"을 빼고 숫자만 */}
+                        <span className={cn(s.students.length === 0 && "opacity-50")}>
+                          {s.students.length}
+                          <span className="hidden @[88px]:inline">명</span>
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -219,12 +227,18 @@ export function ScheduleCalendar({ year, month, today, prevKey, nextKey, thisMon
         </div>
       </section>
 
-      <aside className="hidden lg:block">
+      <aside className="hidden xl:block">
         <div className="sticky top-6 rounded-lg border bg-background p-4">{panel}</div>
       </aside>
 
       <Sheet open={sheetOpen && !isDesktop} onOpenChange={setSheetOpen}>
-        <SheetContent side="bottom" className="max-h-[85dvh] gap-0 overflow-y-auto rounded-t-xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <SheetContent
+          side={isTablet ? "right" : "bottom"}
+          className={cn(
+            "gap-0 overflow-y-auto p-4",
+            isTablet ? "w-[360px] pt-12 sm:max-w-[360px]" : "max-h-[85dvh] rounded-t-xl pb-[max(1rem,env(safe-area-inset-bottom))]",
+          )}
+        >
           <SheetTitle className="sr-only">일정 자세히</SheetTitle>
           {panel}
         </SheetContent>

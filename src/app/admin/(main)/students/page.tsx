@@ -23,9 +23,9 @@ export default async function StudentsPage() {
               <TableRow>
                 <TableHead>이름</TableHead>
                 <TableHead>이메일</TableHead>
-                <TableHead>출생연도</TableHead>
-                <TableHead>성별</TableHead>
-                <TableHead>가입</TableHead>
+                <TableHead className="hidden xl:table-cell">출생연도</TableHead>
+                <TableHead className="hidden xl:table-cell">성별</TableHead>
+                <TableHead className="hidden md:table-cell">가입</TableHead>
                 <TableHead className="w-40" />
               </TableRow>
             </TableHeader>
@@ -41,9 +41,9 @@ export default async function StudentsPage() {
                     )}
                   </TableCell>
                   <TableCell>{s.email}</TableCell>
-                  <TableCell className="tabular-nums">{s.birthYear}</TableCell>
-                  <TableCell>{s.gender === "MALE" ? "남성" : "여성"}</TableCell>
-                  <TableCell className="tabular-nums">{formatKst(s.createdAt)}</TableCell>
+                  <TableCell className="hidden tabular-nums xl:table-cell">{s.birthYear}</TableCell>
+                  <TableCell className="hidden xl:table-cell">{s.gender === "MALE" ? "남성" : "여성"}</TableCell>
+                  <TableCell className="hidden tabular-nums md:table-cell">{formatKst(s.createdAt)}</TableCell>
                   <TableCell className="text-right">
                     <ResetPasswordButton id={s.id} name={s.name} password={RESET_PASSWORD} />
                   </TableCell>

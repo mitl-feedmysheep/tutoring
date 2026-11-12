@@ -22,7 +22,7 @@ const itemClass = (active: boolean) =>
 export function Sidebar({ teacherName, isAdmin, onNavigate }: { teacherName: string; isAdmin: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
-    <aside className="flex h-dvh w-64 flex-col bg-slate-900 text-white md:sticky md:top-0">
+    <aside className="flex h-full w-64 flex-col overflow-y-auto bg-slate-900 text-white">
       <div className="border-b border-slate-800 px-6 py-4">
         <Link href="/admin" onClick={onNavigate} className="flex items-center gap-2">
           <GraduationCap className="size-6 text-indigo-400" />
