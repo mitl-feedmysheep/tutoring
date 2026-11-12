@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FormError } from "@/components/auth/auth-card";
 import { loginAction } from "@/app/auth-actions";
+import type { Area } from "@/lib/auth/session";
 
-export function LoginForm() {
-  const [state, action, pending] = useActionState(loginAction, undefined);
+export function LoginForm({ area }: { area: Area }) {
+  const [state, action, pending] = useActionState(loginAction.bind(null, area), undefined);
   return (
     <form action={action} className="grid gap-4">
       <Field label="이메일" htmlFor="email">

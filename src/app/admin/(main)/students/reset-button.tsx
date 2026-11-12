@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { resetPasswordAction } from "../actions";
+import { resetPasswordAction } from "@/app/admin/actions";
 
 export function ResetPasswordButton({ id, name, password }: { id: string; name: string; password: string }) {
   const [pending, start] = useTransition();

@@ -24,13 +24,24 @@ async function setup() {
 describe("세션 토큰", () => {
   it("서명한 값을 그대로 돌려받고, 변조하면 거부한다", async () => {
     const claims = { role: "student" as const, teacherId: "t1", studentId: "s1", v: 3 };
-    const token = await signSession(claims);
-    expect(await verifySession(token)).toEqual(claims);
+    const token = await signSession(claims, "app");
+    expect(await verifySession(token, "app")).toEqual(claims);
 
     const [h, p, s] = token.split(".");
     const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(p, "base64url").toString()), teacherId: "t2" })).toString("base64url");
-    expect(await verifySession(`${h}.${forged}.${s}`)).toBeNull();
-    expect(await verifySession("garbage")).toBeNull();
+    expect(await verifySession(`${h}.${forged}.${s}`, "app")).toBeNull();
+    expect(await verifySession("garbage", "app")).toBeNull();
+  });
+});
+
+describe("웹앱·어드민 로그인 분리", () => {
+  it("웹앱 토큰은 어드민에서, 어드민 토큰은 웹앱에서 쓸 수 없다", async () => {
+    const claims = { role: "teacher" as const, teacherId: "t1", v: 0 };
+    const app = await signSession(claims, "app");
+    const admin = await signSession(claims, "admin");
+    expect(await verifySession(app, "admin")).toBeNull();
+    expect(await verifySession(admin, "app")).toBeNull();
+    expect(await verifySession(admin, "admin")).toEqual(claims);
   });
 });
 

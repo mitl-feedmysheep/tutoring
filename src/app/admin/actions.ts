@@ -13,7 +13,7 @@ export async function issueInviteAction(_: IssueState, form: FormData): Promise<
   const { db, teacherId } = await requireTeacher();
   try {
     const invite = await issueInvite(db, teacherId, String(form.get("memo") ?? ""));
-    revalidatePath("/admin/invites");
+    revalidatePath("/admin/students/invites");
     return { token: invite.token, expiresAt: invite.expiresAt.toISOString() };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "발급하지 못했어요" };
@@ -23,7 +23,7 @@ export async function issueInviteAction(_: IssueState, form: FormData): Promise<
 export async function revokeInviteAction(id: string) {
   const { db } = await requireTeacher();
   const ok = await revokeInvite(db, id);
-  revalidatePath("/admin/invites");
+  revalidatePath("/admin/students/invites");
   return ok;
 }
 

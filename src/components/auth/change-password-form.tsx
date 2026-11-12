@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FormError } from "@/components/auth/auth-card";
 import { changePasswordAction } from "@/app/auth-actions";
+import type { Area } from "@/lib/auth/session";
 
-export function ChangePasswordForm({ needsCurrent }: { needsCurrent: boolean }) {
-  const [state, action, pending] = useActionState(changePasswordAction, undefined);
+export function ChangePasswordForm({ area, needsCurrent }: { area: Area; needsCurrent: boolean }) {
+  const [state, action, pending] = useActionState(changePasswordAction.bind(null, area), undefined);
   return (
     <form action={action} className="grid gap-4">
       {needsCurrent && (

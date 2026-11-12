@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { revokeInviteAction } from "../actions";
+import { revokeInviteAction } from "@/app/admin/actions";
 
 export function RevokeButton({ id }: { id: string }) {
   const [pending, start] = useTransition();

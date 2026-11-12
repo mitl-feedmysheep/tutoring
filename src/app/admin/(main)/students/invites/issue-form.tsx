@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormError } from "@/components/auth/auth-card";
 import { formatKst } from "@/lib/time";
-import { issueInviteAction } from "../actions";
+import { issueInviteAction } from "@/app/admin/actions";
 
 export function IssueInviteForm() {
   const [state, action, pending] = useActionState(issueInviteAction, undefined);

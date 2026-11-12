@@ -23,10 +23,7 @@ export default async function InvitesPage() {
   return (
     <div className="grid gap-8">
       <section className="grid gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">초대 링크</h1>
-          <p className="text-sm text-muted-foreground">학생마다 링크를 하나씩 발급해요. 1시간 동안 한 번만 쓸 수 있어요.</p>
-        </div>
+        <p className="text-sm text-muted-foreground">학생마다 링크를 하나씩 발급해요. 1시간 동안 한 번만 쓸 수 있어요.</p>
         <IssueInviteForm />
       </section>
 

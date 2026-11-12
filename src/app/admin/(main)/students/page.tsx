@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireTeacher } from "@/lib/auth/session";
@@ -7,7 +6,7 @@ import { listStudents, RESET_PASSWORD } from "@/lib/admin/students";
 import { formatKst } from "@/lib/time";
 import { ResetPasswordButton } from "./reset-button";
 
-export const metadata: Metadata = { title: "학생" };
+export const metadata: Metadata = { title: "학생 목록" };
 
 export default async function StudentsPage() {
   const { db } = await requireTeacher();
@@ -15,14 +14,8 @@ export default async function StudentsPage() {
 
   return (
     <div className="grid gap-4">
-      <div>
-        <h1 className="text-xl font-semibold">학생</h1>
-        <p className="text-sm text-muted-foreground">
-          새 학생은 <Link href="/admin/invites" className="underline underline-offset-4">초대 링크</Link>로 가입해요.
-        </p>
-      </div>
       {students.length === 0 ? (
-        <p className="text-sm text-muted-foreground">아직 가입한 학생이 없어요.</p>
+        <p className="text-sm text-muted-foreground">아직 가입한 학생이 없어요. 초대 링크 탭에서 링크를 발급해 학생에게 보내 주세요.</p>
       ) : (
         <div className="rounded-lg border bg-background">
           <Table>
