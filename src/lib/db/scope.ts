@@ -27,7 +27,7 @@ export type Scope =
 /** 모델별 관계. many = 목록, one = 단건. 스키마에 관계를 추가하면 여기도 추가한다 (테스트가 확인) */
 export const RELATIONS: Record<Model, { many: Record<string, Model>; one: Record<string, Model> }> = {
   Teacher: {
-    many: { students: "Student", invites: "Invite", weeklySlots: "WeeklySlot", slots: "Slot", studyLogs: "StudyLog", files: "File", monthlySlotHistories: "MonthlySlotHistory" },
+    many: { students: "Student", invites: "Invite", weeklySlots: "WeeklySlot", slots: "Slot", studyLogs: "StudyLog", files: "File", monthlySlotHistories: "MonthlySlotHistory", pushSubscriptions: "PushSubscription" },
     one: {},
   },
   Student: {
@@ -41,6 +41,7 @@ export const RELATIONS: Record<Model, { many: Record<string, Model>; one: Record
       fileAccesses: "FileAccess",
       payments: "Payment",
       boards: "Board",
+      pushSubscriptions: "PushSubscription",
     },
     one: { teacher: "Teacher" },
   },
@@ -64,13 +65,14 @@ export const RELATIONS: Record<Model, { many: Record<string, Model>; one: Record
   Payment: { many: {}, one: { student: "Student" } },
   Board: { many: { comments: "Comment" }, one: { student: "Student" } },
   Comment: { many: {}, one: { board: "Board" } },
+  PushSubscription: { many: {}, one: { teacher: "Teacher", student: "Student" } },
 };
 
 /** student_id 컬럼이 있는 모델 */
-const HAS_STUDENT_ID = new Set<Model>(["Invite", "WeeklyLesson", "Lesson", "ScheduleChange", "StudyLog", "FileAccess", "Payment", "Board"]);
+const HAS_STUDENT_ID = new Set<Model>(["Invite", "WeeklyLesson", "Lesson", "ScheduleChange", "StudyLog", "FileAccess", "Payment", "Board", "PushSubscription"]);
 
 /** 학생이 쓰기(만들기·수정)할 수 있는 모델. 나머지는 학생 범위에서 쓰기 금지 */
-const STUDENT_WRITABLE = new Set<Model>(["Student", "WeeklyLesson", "Lesson", "ScheduleChange", "LessonNote", "StudyLog", "File", "Board", "Comment"]);
+const STUDENT_WRITABLE = new Set<Model>(["Student", "WeeklyLesson", "Lesson", "ScheduleChange", "LessonNote", "StudyLog", "File", "Board", "Comment", "PushSubscription"]);
 
 /** 선생님이 학생 일정을 대신 바꿀 때(byTeacher) 쓰기할 수 있는 모델. 노트·글처럼 작성자가 학생으로 남는 것은 막는다 */
 const TEACHER_FOR_STUDENT_WRITABLE = new Set<Model>(["Student", "WeeklyLesson", "Lesson", "ScheduleChange"]);
@@ -113,6 +115,7 @@ export function readFilter(model: Model, scope: Scope): Where {
     case "FileAccess":
     case "Payment":
     case "Board":
+    case "PushSubscription": // 학생은 본인 기기만. student_id NULL(선생님 기기)은 빠진다
       return { ...base, studentId: sid };
     case "LessonNote": // 학생은 선생님 노트를 못 본다
       return { ...base, author: "STUDENT", lesson: { studentId: sid } };

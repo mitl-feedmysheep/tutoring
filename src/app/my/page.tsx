@@ -3,12 +3,12 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { requireUser } from "@/lib/auth/session";
 import { myTeacherName } from "@/lib/app/profile";
-import { logoutAction } from "@/app/auth-actions";
+import { LogoutButton } from "@/components/app/logout-button";
 import { TabScreen } from "@/components/app/screens";
 
 export const metadata: Metadata = { title: "MY" };
 
-// MY 탭 (APP-04). 알림 설정은 5단계에서 연결한다. 납부 내역은 학생만 (PAY-04)
+// MY 탭 (APP-04). 납부 내역은 학생만 (PAY-04)
 export default async function MyTab() {
   const account = await requireUser();
   const { claims } = account;
@@ -35,15 +35,11 @@ export default async function MyTab() {
         {claims.role === "student" && <MenuItem label="납부 내역" href="/my/payments" />}
       </Menu>
       <Menu>
-        <MenuItem label="알림 설정" />
+        <MenuItem label="알림 설정" href="/my/notifications" />
         <MenuItem label="비밀번호 변경" href="/change-password" />
       </Menu>
 
-      <form action={logoutAction.bind(null, "app")} className="text-center">
-        <button type="submit" className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-          로그아웃
-        </button>
-      </form>
+      <LogoutButton />
     </TabScreen>
   );
 }

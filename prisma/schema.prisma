@@ -69,6 +69,7 @@ model Teacher {
   studyLogs            StudyLog[]
   files                File[]
   monthlySlotHistories MonthlySlotHistory[]
+  pushSubscriptions    PushSubscription[]
 
   @@map("teacher")
 }
@@ -92,15 +93,16 @@ model Student {
 
   teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
-  invites         Invite[]
-  weeklyLessons   WeeklyLesson[]
-  lessons         Lesson[]
-  scheduleChanges ScheduleChange[]
-  studyLogs       StudyLog[]
-  uploadedFiles   File[]           @relation("FileUploader")
-  fileAccesses    FileAccess[]
-  payments        Payment[]
-  boards          Board[]
+  invites           Invite[]
+  weeklyLessons     WeeklyLesson[]
+  lessons           Lesson[]
+  scheduleChanges   ScheduleChange[]
+  studyLogs         StudyLog[]
+  uploadedFiles     File[]             @relation("FileUploader")
+  fileAccesses      FileAccess[]
+  payments          Payment[]
+  boards            Board[]
+  pushSubscriptions PushSubscription[]
 
   @@unique([teacherId, id])
   @@map("student")
@@ -409,4 +411,26 @@ model Comment {
 
   @@index([boardId, createdAt])
   @@map("comment")
+}
+
+/// 웹 푸시 구독. 기기(브라우저) 하나에 한 행 (APP-12). 인투디헤븐 push_subscription과 같은 구조에 선생님 범위를 더했다
+model PushSubscription {
+  id        String    @id @default(uuid(7)) @db.Char(36)
+  teacherId String    @map("teacher_id") @db.Char(36)
+  /// NULL = 선생님 본인 기기
+  studentId String?   @map("student_id") @db.Char(36)
+  /// 기기의 푸시 주소. 같은 기기에서 다른 사람이 로그인해 켜면 그 사람 것으로 옮긴다
+  endpoint  String    @unique @db.VarChar(768)
+  p256dh    String    @db.VarChar(255)
+  auth      String    @db.VarChar(255)
+  userAgent String?   @map("user_agent") @db.VarChar(500)
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
+
+  teacher Teacher  @relation(fields: [teacherId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  student Student? @relation(fields: [teacherId, studentId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([teacherId, studentId])
+  @@map("push_subscription")
 }

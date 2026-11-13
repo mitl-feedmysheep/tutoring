@@ -5,7 +5,9 @@ import { dailyCheer } from "@/lib/app/cheer";
 import { nextDayText, timeRangeText } from "@/lib/app/lesson-format";
 import { addMonths, clockText, daysInMonth, kstParts, monthKey, monthOf, parseMonthKey } from "@/lib/schedule/kst";
 import { monthLessons, nextLesson, type StudentCtx } from "@/lib/schedule/student";
+import { vapidPublicKey } from "@/lib/push/push";
 import { TabScreen } from "@/components/app/screens";
+import { NotificationPrompt } from "@/components/app/notification-prompt";
 import { NextLessonCard, type NextLessonView } from "@/components/app/lessons/next-lesson-card";
 import { LessonCalendar, type CalendarLesson, type CalendarView } from "@/components/app/lessons/lesson-calendar";
 
@@ -20,6 +22,7 @@ export default async function LessonTab({ searchParams }: { searchParams: Promis
     return (
       <TabScreen title={title}>
         <Placeholder>오늘·이번 주 수업 목록이 여기에 나와요.</Placeholder>
+        <NotificationPrompt publicKey={vapidPublicKey()} />
       </TabScreen>
     );
   }
@@ -71,6 +74,7 @@ export default async function LessonTab({ searchParams }: { searchParams: Promis
         </Link>
       </div>
       <LessonCalendar view={calendar} />
+      <NotificationPrompt publicKey={vapidPublicKey()} />
     </TabScreen>
   );
 }

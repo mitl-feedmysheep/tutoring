@@ -354,9 +354,25 @@ comment
 | author | ENUM('TEACHER','STUDENT') | |
 | content | TEXT | |
 
+### push_subscription (웹 푸시 구독, APP-12, APP-18)
+
+인투디헤븐 `push_subscription`(member_id, endpoint, p256dh, auth, user_agent, created_at)과 같은 구조에 선생님 범위와 소프트 삭제를 더했다. 시간대 칼럼은 없다 (모두 KST).
+
+| 컬럼 | 타입 | 설명 |
+|---|---|---|
+| teacher_id | CHAR(36) | FK → teacher |
+| student_id | CHAR(36) NULL | 복합 FK → student. NULL = 선생님 본인 기기 |
+| endpoint | VARCHAR(768) | 기기 푸시 주소 |
+| p256dh, auth | VARCHAR(255) | 알림 암호화 키 |
+| user_agent | VARCHAR(500) NULL | 어떤 기기인지 (문제 확인용) |
+
+- `UNIQUE (endpoint)`: 기기 하나에 한 행. 같은 기기에서 다른 사람이 켜면 행의 주인을 옮긴다 (`src/lib/db/push.ts`, 범위 계층 밖에서 쓰는 유일한 곳).
+- 끄기·로그아웃·없어진 구독(404/410)은 삭제 표시. 다시 켜면 되살림.
+- 학생 범위는 본인 기기만, 선생님 범위는 자기 학생 기기 + 본인 기기.
+
 ## 5. 나중 단계에서 추가할 것
 
 | 단계 | 추가 |
 |---|---|
-| 5단계 알림 | `push_subscription`, `notification_log` |
+| 5단계 알림 | `notification_log` (스케줄러 중복 발송 막기, 필요하면) |
 | 6단계 Meet | teacher: 구글 리프레시 토큰(암호화). slot: `google_event_id`, `meet_url` |

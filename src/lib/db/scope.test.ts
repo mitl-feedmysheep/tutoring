@@ -53,6 +53,10 @@ async function createTenant() {
   const board = await prisma.board.create({ data: { teacherId: t, studentId: s1.id, author: "STUDENT", title: "q", content: "q" } });
   const otherBoard = await prisma.board.create({ data: { teacherId: t, studentId: s2.id, author: "STUDENT", title: "q2", content: "q2" } });
   const teacherComment = await prisma.comment.create({ data: { teacherId: t, boardId: board.id, author: "TEACHER", content: "a" } });
+  const push = (who: string, studentId: string | null) =>
+    prisma.pushSubscription.create({ data: { teacherId: t, studentId, endpoint: `https://push.test/${tag}-${who}`, p256dh: "k", auth: "a" } });
+  const pushS1 = await push("s1", s1.id);
+  const pushTeacher = await push("t", null);
   const invite = await prisma.invite.create({
     data: { teacherId: t, tokenHash: randomUUID().replace(/-/g, "").padEnd(64, "0"), expiresAt: new Date(Date.now() + 3600_000) },
   });
@@ -60,7 +64,7 @@ async function createTenant() {
   return {
     teacher, s1, s2, weeklySlot, slot, monthlySlotHistory, weeklyLesson, lesson1, lesson2, teacherNote, studentNote, otherNote,
     scheduleChange, studyLog, ownStudyLog, photo, openMaterial, closedMaterial, fileAccess, payment, board, otherBoard,
-    teacherComment, invite,
+    teacherComment, invite, pushS1, pushTeacher,
     /** 모델마다 이 선생님 소유인 행 하나 */
     rowOf: {} as Record<Model, { id: string }>,
   };
@@ -73,6 +77,7 @@ function fillRows(x: Tenant) {
     Teacher: x.teacher, Student: x.s1, Invite: x.invite, WeeklySlot: x.weeklySlot, Slot: x.slot, MonthlySlotHistory: x.monthlySlotHistory, WeeklyLesson: x.weeklyLesson,
     Lesson: x.lesson1, ScheduleChange: x.scheduleChange, LessonNote: x.teacherNote, StudyLog: x.studyLog, File: x.photo,
     FileAccess: x.fileAccess, Payment: x.payment, Board: x.board, Comment: x.teacherComment,
+    PushSubscription: x.pushS1,
   };
   return x;
 }
@@ -221,6 +226,16 @@ describe("학생 범위", () => {
   it("공부 기록에 선생님 본인 기록은 안 보인다", async () => {
     const logs = await s1db().studyLog.findMany();
     expect(logs.map((l) => l.id)).toEqual([A.studyLog.id]);
+  });
+
+  it("알림 구독은 본인 기기만 보이고, 선생님 기기·다른 학생 기기는 안 보인다", async () => {
+    expect((await s1db().pushSubscription.findMany()).map((p) => p.id)).toEqual([A.pushS1.id]);
+    expect(await studentDb(A.teacher.id, A.s2.id).pushSubscription.findMany()).toEqual([]);
+    const sub = await studentDb(A.teacher.id, A.s2.id).pushSubscription.create({
+      data: { endpoint: `https://push.test/${randomUUID()}`, p256dh: "k", auth: "a" } as any,
+    });
+    expect(sub.studentId).toBe(A.s2.id);
+    expect(await s1db().pushSubscription.updateMany({ where: { id: sub.id }, data: { deletedAt: new Date() } })).toEqual({ count: 0 });
   });
 
   it("파일은 본인 사진과 본인에게 공개된 자료만 보인다", async () => {

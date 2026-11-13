@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { NavTracker } from "@/components/app/nav";
+import { ServiceWorkerRegister } from "@/components/app/service-worker";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -15,6 +16,12 @@ export const metadata: Metadata = {
     template: "%s | Tutoring",
   },
   description: "영어 말하기 과외",
+  // 아이폰 홈 화면 앱: 이름, 주소창 없이 열기 (NFR-05). 아이콘은 app/apple-icon.png
+  appleWebApp: {
+    capable: true,
+    title: "Tutoring",
+    statusBarStyle: "default",
+  },
 };
 
 // 인투디헤븐 웹앱과 같이 앱처럼 쓰도록 확대를 막는다 (입력칸을 누를 때 화면이 커지는 것도 막힘)
@@ -45,6 +52,7 @@ export default function RootLayout({
       </head>
       <body className={`${geistMono.variable} antialiased`}>
         <NavTracker />
+        <ServiceWorkerRegister />
         {children}
         <Toaster position="top-center" richColors />
       </body>
