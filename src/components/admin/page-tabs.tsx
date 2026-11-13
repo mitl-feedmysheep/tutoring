@@ -18,7 +18,7 @@ export function PageTabs({ tabs }: { tabs: { name: string; href: string }[] }) {
             aria-current={active ? "page" : undefined}
             className={cn(
               "-mb-px border-b-2 px-1 pb-2.5 text-sm font-medium transition-colors",
-              active ? "border-indigo-600 text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+              active ? "border-emerald-600 text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             {tab.name}

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { NavTracker } from "@/components/app/nav";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -22,7 +23,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#0f172a",
+  // 아이폰 노치·홈 바 영역까지 화면을 쓰고, 그 여백은 safe-area-inset으로 비운다
+  viewportFit: "cover",
+  themeColor: "#fcfcfa",
 };
 
 export default function RootLayout({
@@ -41,6 +44,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${geistMono.variable} antialiased`}>
+        <NavTracker />
         {children}
         <Toaster position="top-center" richColors />
       </body>

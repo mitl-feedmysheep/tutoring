@@ -16,7 +16,7 @@ const ADMIN_NAV = [{ name: "선생님 관리", href: "/admin/teachers", icon: Sc
 const itemClass = (active: boolean) =>
   cn(
     "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-    active ? "bg-indigo-600 text-white" : "text-slate-300 hover:bg-slate-800 hover:text-white",
+    active ? "bg-emerald-600 text-white" : "text-slate-300 hover:bg-slate-800 hover:text-white",
   );
 
 export function Sidebar({ teacherName, isAdmin, onNavigate }: { teacherName: string; isAdmin: boolean; onNavigate?: () => void }) {
@@ -25,7 +25,7 @@ export function Sidebar({ teacherName, isAdmin, onNavigate }: { teacherName: str
     <aside className="flex h-full w-64 flex-col overflow-y-auto bg-slate-900 text-white">
       <div className="border-b border-slate-800 px-6 py-4">
         <Link href="/admin" onClick={onNavigate} className="flex items-center gap-2">
-          <GraduationCap className="size-6 text-indigo-400" />
+          <GraduationCap className="size-6 text-emerald-400" />
           <span className="text-lg font-semibold">Tutoring</span>
         </Link>
       </div>

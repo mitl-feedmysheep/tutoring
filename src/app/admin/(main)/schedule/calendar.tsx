@@ -65,7 +65,7 @@ function dateLabel(date: string) {
 const timeRange = (s: CalendarSlot) => `${formatMinute(s.start)}–${formatMinute(s.end)}`;
 
 const slotColor = (s: CalendarSlot) =>
-  s.weekly ? "border-indigo-200 bg-indigo-50 text-indigo-950" : "border-amber-200 bg-amber-50 text-amber-950";
+  s.weekly ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-amber-200 bg-amber-50 text-amber-950";
 
 /**
  * 달력 + 상세 패널. 날짜 칸에는 슬롯 카드(시작 시간·예약 인원)만 두고, 누르면 오른쪽 패널에 자세히 보여 준다.
@@ -125,7 +125,7 @@ export function ScheduleCalendar({ year, month, today, prevKey, nextKey, thisMon
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm border border-indigo-300 bg-indigo-100" />
+              <span className="size-2.5 rounded-sm border border-emerald-300 bg-emerald-100" />
               고정 수업
             </span>
             <span className="flex items-center gap-1.5">
@@ -166,7 +166,7 @@ export function ScheduleCalendar({ year, month, today, prevKey, nextKey, thisMon
                     border,
                     "@container min-h-16 min-w-0 cursor-pointer p-1 transition-colors hover:bg-slate-50 sm:min-h-28 sm:p-1.5",
                     isPast && "bg-slate-50/60",
-                    selectedDate === date && "bg-indigo-50/70 hover:bg-indigo-50/70",
+                    selectedDate === date && "bg-emerald-50/70 hover:bg-emerald-50/70",
                   )}
                 >
                   <button
@@ -181,7 +181,7 @@ export function ScheduleCalendar({ year, month, today, prevKey, nextKey, thisMon
                       wd === 0 && "text-red-500",
                       wd === 6 && "text-blue-500",
                       isPast && "opacity-50",
-                      date === today && "bg-indigo-600 font-semibold text-white opacity-100",
+                      date === today && "bg-emerald-600 font-semibold text-white opacity-100",
                     )}
                   >
                     {day}
@@ -200,7 +200,7 @@ export function ScheduleCalendar({ year, month, today, prevKey, nextKey, thisMon
                           "flex min-w-0 items-center justify-between gap-1 overflow-hidden rounded border px-1 py-0.5 text-left text-xs whitespace-nowrap tabular-nums transition-shadow hover:shadow-sm @[88px]:px-1.5",
                           slotColor(s),
                           s.past && "opacity-50",
-                          selectedSlotId === s.id && "ring-2 ring-indigo-500 ring-offset-1",
+                          selectedSlotId === s.id && "ring-2 ring-emerald-500 ring-offset-1",
                         )}
                       >
                         <span className="font-medium">{formatMinute(s.start)}</span>
@@ -216,7 +216,7 @@ export function ScheduleCalendar({ year, month, today, prevKey, nextKey, thisMon
                   {daySlots.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-0.5 sm:hidden" aria-hidden>
                       {daySlots.map((s) => (
-                        <span key={s.id} className={cn("size-1.5 rounded-full", s.weekly ? "bg-indigo-500" : "bg-amber-500", s.past && "opacity-40")} />
+                        <span key={s.id} className={cn("size-1.5 rounded-full", s.weekly ? "bg-emerald-500" : "bg-amber-500", s.past && "opacity-40")} />
                       ))}
                     </div>
                   )}

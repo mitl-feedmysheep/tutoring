@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthCard } from "@/components/auth/auth-card";
+import { SubScreen } from "@/components/app/screens";
 import { LoginForm } from "@/components/auth/login-form";
 import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import { logoutAction } from "@/app/auth-actions";
@@ -27,6 +28,16 @@ export async function ChangePasswordScreen({ area }: { area: Area }) {
   const account = await getAccount(area);
   if (!account) redirect(AREA_PATHS[area].login);
   const forced = account.mustChangePassword;
+  // 웹앱에서 스스로 바꿀 때는 MY 탭의 하위 화면 (← 로 돌아간다)
+  if (area === "app" && !forced) {
+    return (
+      <SubScreen title="비밀번호 변경" fallback="/my">
+        <div className="rounded-xl bg-card p-4 shadow-[0_0_0_1px_var(--color-border)]">
+          <ChangePasswordForm area={area} needsCurrent />
+        </div>
+      </SubScreen>
+    );
+  }
   return (
     <AuthCard
       title={forced ? "새 비밀번호 설정" : "비밀번호 변경"}
