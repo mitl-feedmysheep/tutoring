@@ -101,7 +101,7 @@ describe("취소 (SCH-05, SCH-08)", () => {
     expect(await lessonDetail(a, lessonId, NOW)).toMatchObject({ canceled: true, canChange: false });
     await err(cancelLesson(a, lessonId, NOW), "이미 취소한 수업이에요");
 
-    expect(await bookSlot(a, slot.id, NOW)).toEqual({ lessonId });
+    expect(await bookSlot(a, slot.id, NOW)).toMatchObject({ lessonId });
     const actions = await prisma.scheduleChange.findMany({ where: { lessonId }, orderBy: { createdAt: "asc" } });
     expect(actions.map((c) => c.action)).toEqual(["ADD", "CANCEL", "ADD"]);
   });

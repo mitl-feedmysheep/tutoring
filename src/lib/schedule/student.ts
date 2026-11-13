@@ -220,8 +220,8 @@ export async function bookSlot(ctx: StudentCtx, slotId: string, now = new Date()
   try {
     return await ctx.db.$transaction(async (tx) => {
       const { lessonId, startsAt } = await bookInTx(tx, slotId, now, p);
-      await tx.scheduleChange.create({ data: { lessonId, action: "ADD", afterText: slotText(startsAt), reason: p.reason } as never });
-      return { lessonId };
+      const change = await tx.scheduleChange.create({ data: { lessonId, action: "ADD", afterText: slotText(startsAt), reason: p.reason } as never, select: { id: true } });
+      return { lessonId, changeIds: [change.id] };
     });
   } catch (e) {
     if (isUniqueError(e)) throw new ScheduleError("이미 예약한 수업이에요");
@@ -243,13 +243,16 @@ async function cancelInTx(tx: Tx, lessonId: string, now: Date, p: Policy) {
   return lesson.slot;
 }
 
-/** SCH-05: 이번 회차만 취소. 선생님 알림(NOTI-02)은 5단계 */
+/** SCH-05: 이번 회차만 취소. changeIds는 알림(NOTI-02, 07)용 이력 id */
 export async function cancelLesson(ctx: StudentCtx, lessonId: string, now = new Date()) {
   const p = policyOf(ctx);
   return ctx.db.$transaction(async (tx) => {
     const slot = await cancelInTx(tx, lessonId, now, p);
-    await tx.scheduleChange.create({ data: { lessonId, action: "CANCEL", beforeText: slotText(slot.startsAt), reason: p.reason } as never });
-    return { startsAt: slot.startsAt };
+    const change = await tx.scheduleChange.create({
+      data: { lessonId, action: "CANCEL", beforeText: slotText(slot.startsAt), reason: p.reason } as never,
+      select: { id: true },
+    });
+    return { startsAt: slot.startsAt, changeIds: [change.id] };
   });
 }
 
@@ -272,8 +275,9 @@ export async function moveInTx(tx: Tx, lessonId: string, slotId: string, now: Da
   const from = await cancelInTx(tx, lessonId, now, p);
   if (from.id === slotId) throw new ScheduleError("지금 수업과 같은 시간이에요");
   const to = await bookInTx(tx, slotId, now, p);
-  await tx.scheduleChange.create({
+  const change = await tx.scheduleChange.create({
     data: { lessonId, action: "MOVE", beforeText: slotText(from.startsAt), afterText: slotText(to.startsAt), reason: p.reason } as never,
+    select: { id: true },
   });
-  return { lessonId: to.lessonId };
+  return { lessonId: to.lessonId, changeIds: [change.id] };
 }

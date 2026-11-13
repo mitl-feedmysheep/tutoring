@@ -235,7 +235,7 @@ describe("1회성 슬롯과 슬롯 삭제 (SCH-01, SCH-10, SCH-12)", () => {
     await db.lesson.create({ data: { slotId: slot.id, studentId: s.id } as never });
 
     await expect(deleteSlot(db, slot.id, kstToUtc(2026, 12, 17, 600))).rejects.toThrow("지난");
-    expect(await deleteSlot(db, slot.id, MID_DEC)).toEqual({ studentIds: [s.id] });
+    expect(await deleteSlot(db, slot.id, MID_DEC)).toMatchObject({ studentIds: [s.id] });
     expect(await listMonthSlots(db, DEC)).toHaveLength(0);
     expect(await db.lesson.count({ where: { slotId: slot.id } })).toBe(0);
   });

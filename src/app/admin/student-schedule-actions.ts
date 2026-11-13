@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireTeacher } from "@/lib/auth/session";
 import { teacherStudentCtx } from "@/lib/admin/student-schedule";
+import { notifyScheduleChange } from "@/lib/notify/events";
+import { notifyLater } from "@/lib/notify/later";
 import { bookSlot, cancelLesson, moveLesson } from "@/lib/schedule/student";
 import { ScheduleError } from "@/lib/schedule/teacher";
 import { applyWeeklyChange } from "@/lib/schedule/weekly";
@@ -19,12 +21,13 @@ function checkId(id: unknown): string {
   return id;
 }
 
-async function run(studentId: string, reason: string, fn: (ctx: Awaited<ReturnType<typeof teacherStudentCtx>>) => Promise<unknown>): Promise<ActionResult> {
+async function run(studentId: string, reason: string, fn: (ctx: Awaited<ReturnType<typeof teacherStudentCtx>>) => Promise<{ changeIds: string[] }>): Promise<ActionResult> {
   const { db, teacherId } = await requireTeacher();
   try {
     const ctx = await teacherStudentCtx(db, teacherId, studentId, String(reason ?? ""));
-    await fn(ctx);
-    // TODO(5단계): 학생에게 알림, 사유 포함 (NOTI-07)
+    const { changeIds } = await fn(ctx);
+    // 학생에게 알림, 사유 포함 (NOTI-07)
+    notifyLater("선생님 일정 변경", () => notifyScheduleChange(teacherId, ctx.studentId, changeIds));
     revalidatePath(`/admin/students/${ctx.studentId}`);
     revalidatePath("/admin/schedule", "layout");
     return { ok: true };

@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireTeacher } from "@/lib/auth/session";
+import { notifySlotDeleted } from "@/lib/notify/events";
+import { notifyLater } from "@/lib/notify/later";
 import { parseDateKey, parseTime } from "@/lib/schedule/kst";
 import {
   createOneOffSlot,
@@ -59,10 +61,11 @@ export async function createOneOffSlotAction(form: FormData) {
 }
 
 export async function deleteSlotAction(id: string) {
-  const { db } = await requireTeacher();
+  const { db, teacherId } = await requireTeacher();
   return run(async () => {
-    const { studentIds } = await deleteSlot(db, id);
-    // TODO(5단계): 예약했던 학생들에게 알림 (NOTI-03)
+    const { slot, studentIds } = await deleteSlot(db, id);
+    // 예약했던 학생들에게 알림 (NOTI-03)
+    if (studentIds.length) notifyLater("슬롯 삭제", () => notifySlotDeleted(teacherId, slot, studentIds));
     return { students: studentIds.length };
   });
 }

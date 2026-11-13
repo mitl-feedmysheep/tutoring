@@ -3,7 +3,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import webpush from "web-push";
 import { prisma } from "@/lib/db/client";
 import { teacherDb } from "@/lib/db/scope";
-import { claimNotification, runScheduledNotifications, sendLessonReminders, sendStudyReminders } from "./scheduled";
+import { runScheduledNotifications, sendLessonReminders, sendStudyReminders } from "./scheduled";
+import { claimNotification } from "./send";
 
 vi.mock("web-push", () => ({ default: { setVapidDetails: vi.fn(), sendNotification: vi.fn() } }));
 const send = vi.mocked(webpush.sendNotification);

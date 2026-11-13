@@ -24,7 +24,7 @@ export async function createWeeklySlotsInMonth(tx: Tx, w: WeeklyTime, ym: YearMo
 /**
  * 그 달 전체를 만든다. 이미 만든 달이면 아무것도 하지 않고 null.
  * - 고정 시간 → 슬롯, 학생 고정 일정 → 수업
- * - 선생님이 지운 고정 시간에 남아 있던 학생 고정 일정은 여기서 끝낸다 (SCH-15). 끝난 목록을 돌려준다 (NOTI-06은 5단계)
+ * - 선생님이 지운 고정 시간에 남아 있던 학생 고정 일정은 여기서 끝낸다 (SCH-15). 끝난 목록을 돌려준다. 학생 알림(NOTI-06)은 이 이력을 보고 스케줄러가 보낸다
  */
 export async function generateMonth(db: ScopedDb, ym: YearMonth, now: Date) {
   return db.$transaction(async (tx) => {

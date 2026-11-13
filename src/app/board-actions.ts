@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/session";
 import { addComment, boardCtxOf, createPost, deleteComment, deletePost, updatePost } from "@/lib/board/board";
+import { notifyBoardComment, notifyBoardPost } from "@/lib/notify/events";
+import { notifyLater } from "@/lib/notify/later";
 import { ScheduleError } from "@/lib/schedule/teacher";
 import type { ActionResult } from "./lesson-actions";
 
@@ -21,14 +23,16 @@ async function run<T extends object>(fn: () => Promise<T>): Promise<ActionResult
 }
 
 async function ctx() {
-  return boardCtxOf((await requireUser()).claims);
+  const { claims } = await requireUser();
+  return { ...boardCtxOf(claims), teacherId: claims.teacherId };
 }
 
 export async function createPostAction(studentId: string | null, input: { title: string; content: string }) {
   const me = await ctx();
   return run(async () => {
     const post = await createPost(me, studentId, input);
-    // TODO(5단계): 상대방에게 알림 (BOARD-02, NOTI-05)
+    // 상대방에게 알림 (BOARD-02, NOTI-05)
+    notifyLater("게시판 글", () => notifyBoardPost(me.teacherId, post.id));
     return { id: post.id };
   });
 }
@@ -52,8 +56,8 @@ export async function deletePostAction(id: string) {
 export async function addCommentAction(boardId: string, content: string) {
   const me = await ctx();
   return run(async () => {
-    await addComment(me, boardId, content);
-    // TODO(5단계): 상대방에게 알림 (BOARD-02, NOTI-05)
+    const comment = await addComment(me, boardId, content);
+    notifyLater("게시판 댓글", () => notifyBoardComment(me.teacherId, comment.id));
     return {};
   });
 }

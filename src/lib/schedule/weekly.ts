@@ -206,28 +206,32 @@ export async function applyWeeklyChange(ctx: StudentCtx, ids: unknown, mode: Wee
 
       if (mode === "once") {
         if (!plan.once) throw new ScheduleError("이번만 옮길 수 있는 수업이 없어요");
-        await moveInTx(tx, plan.once.lessonId, plan.once.slotId, now, p);
-        return plan;
+        const { changeIds } = await moveInTx(tx, plan.once.lessonId, plan.once.slotId, now, p);
+        return { ...plan, changeIds };
       }
+
+      // 알림(NOTI-02, 07)용 이력 id
+      const changeIds: string[] = [];
+      const record = async (data: object) => changeIds.push((await tx.scheduleChange.create({ data: data as never, select: { id: true } })).id);
 
       const deadline = deadlineOf(ctx, now);
       for (const c of plan.changes) {
         await detachLessons(tx, c.weeklyLessonId, deadline, now);
         await tx.weeklyLesson.update({ where: { id: c.weeklyLessonId }, data: { weeklySlotId: c.to.weeklySlotId } });
         await attachLessons(tx, c.weeklyLessonId, c.to.weeklySlotId, deadline);
-        await tx.scheduleChange.create({ data: { weeklyLessonId: c.weeklyLessonId, action: "CHANGE", beforeText: weeklyText(c.from), afterText: weeklyText(c.to), reason: p.reason } as never });
+        await record({ weeklyLessonId: c.weeklyLessonId, action: "CHANGE", beforeText: weeklyText(c.from), afterText: weeklyText(c.to), reason: p.reason });
       }
       for (const r of plan.removes) {
         await detachLessons(tx, r.weeklyLessonId, deadline, now);
         await tx.weeklyLesson.update({ where: { id: r.weeklyLessonId }, data: { deletedAt: now } });
-        await tx.scheduleChange.create({ data: { weeklyLessonId: r.weeklyLessonId, action: "REMOVE", beforeText: weeklyText(r.from), reason: p.reason } as never });
+        await record({ weeklyLessonId: r.weeklyLessonId, action: "REMOVE", beforeText: weeklyText(r.from), reason: p.reason });
       }
       for (const a of plan.adds) {
         const wl = await tx.weeklyLesson.create({ data: { weeklySlotId: a.to.weeklySlotId } as never, select: { id: true } });
         await attachLessons(tx, wl.id, a.to.weeklySlotId, deadline);
-        await tx.scheduleChange.create({ data: { weeklyLessonId: wl.id, action: "ADD", afterText: weeklyText(a.to), reason: p.reason } as never });
+        await record({ weeklyLessonId: wl.id, action: "ADD", afterText: weeklyText(a.to), reason: p.reason });
       }
-      return plan;
+      return { ...plan, changeIds };
     });
   } catch (e) {
     if (isUniqueError(e)) throw new ScheduleError("다른 곳에서 일정이 바뀌었어요. 다시 해 주세요");

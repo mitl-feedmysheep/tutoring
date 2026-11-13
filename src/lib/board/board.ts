@@ -199,8 +199,8 @@ export async function addComment(ctx: BoardCtx, boardId: unknown, content: unkno
   const body = text(content, COMMENT_MAX, "댓글", "댓글");
   const post = await findPost(ctx, boardId);
   // 학생이면 범위 계층이 글이 본인 것인지 한 번 더 확인한다
-  await ctx.db.comment.create({ data: { boardId: post.id, author: myAuthor(ctx), content: body } as never });
-  return { boardId: post.id, studentId: post.studentId };
+  const comment = await ctx.db.comment.create({ data: { boardId: post.id, author: myAuthor(ctx), content: body } as never, select: { id: true } });
+  return { id: comment.id, boardId: post.id, studentId: post.studentId };
 }
 
 /** 내가 쓴 댓글 지우기 */
