@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { FormError } from "@/components/auth/auth-card";
+import { AttendanceToggle } from "@/components/admin/attendance-toggle";
 import { cn } from "@/lib/utils";
 import { WEEKDAYS, daysInMonth, dateKey, formatMinute } from "@/lib/schedule/kst";
 import { createOneOffSlotAction, deleteSlotAction } from "@/app/admin/schedule-actions";
@@ -22,8 +23,11 @@ export type CalendarSlot = {
   /** 고정 수업 시간에서 만들어진 슬롯 */
   weekly: boolean;
   past: boolean;
-  students: { name: string; fixed: boolean }[];
+  students: { lessonId: string; name: string; fixed: boolean; attendance: "COMPLETED" | "ABSENT" | null }[];
 };
+
+/** 시작한 수업 중 완료·결석을 아직 체크하지 않은 학생 수 (LESSON-01) */
+const uncheckedCount = (s: CalendarSlot) => (s.past ? s.students.filter((x) => x.attendance === null).length : 0);
 
 type Selection = { kind: "date"; date: string } | { kind: "slot"; id: string } | null;
 
@@ -199,11 +203,14 @@ export function ScheduleCalendar({ year, month, today, prevKey, nextKey, thisMon
                         className={cn(
                           "flex min-w-0 items-center justify-between gap-1 overflow-hidden rounded border px-1 py-0.5 text-left text-xs whitespace-nowrap tabular-nums transition-shadow hover:shadow-sm @[88px]:px-1.5",
                           slotColor(s),
-                          s.past && "opacity-50",
+                          s.past && uncheckedCount(s) === 0 && "opacity-50",
                           selectedSlotId === s.id && "ring-2 ring-emerald-500 ring-offset-1",
                         )}
                       >
-                        <span className="font-medium">{formatMinute(s.start)}</span>
+                        <span className="flex items-center gap-1 font-medium">
+                          {formatMinute(s.start)}
+                          {uncheckedCount(s) > 0 && <span className="size-1.5 shrink-0 rounded-full bg-amber-500" title="체크 전 학생이 있어요" />}
+                        </span>
                         {/* 칸이 좁으면 "명"을 빼고 숫자만 */}
                         <span className={cn(s.students.length === 0 && "opacity-50")}>
                           {s.students.length}
@@ -289,6 +296,7 @@ function DateDetail({ date, slots, today, onSelect }: { date: string; slots: Cal
                 <span className="font-medium tabular-nums">{timeRange(s)}</span>
                 <span className="text-xs">
                   {s.weekly ? "고정" : "1회성"} · {s.students.length}명
+                  {uncheckedCount(s) > 0 && <span className="ml-1 font-medium text-amber-700">· 체크 전 {uncheckedCount(s)}</span>}
                 </span>
               </button>
             </li>
@@ -371,15 +379,19 @@ function SlotDetail({ slot, onSelect }: { slot: CalendarSlot; onSelect: (s: Sele
       </div>
 
       <section className="grid gap-2">
-        <h4 className="text-sm font-medium">예약한 학생 {n}명</h4>
+        <h4 className="text-sm font-medium">{slot.past ? `수업한 학생 ${n}명` : `예약한 학생 ${n}명`}</h4>
+        {slot.past && n > 0 && <p className="text-xs text-muted-foreground">완료·결석을 체크해요. 다시 누르면 체크가 풀려요.</p>}
         {n === 0 ? (
           <p className="text-sm text-muted-foreground">아직 예약한 학생이 없어요.</p>
         ) : (
           <ul className="grid gap-1">
-            {slot.students.map((s, i) => (
-              <li key={i} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
-                {s.name}
-                {s.fixed && <span className="text-xs text-muted-foreground">고정 일정</span>}
+            {slot.students.map((s) => (
+              <li key={s.lessonId} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm">
+                <span className="grid min-w-0">
+                  <span className="truncate">{s.name}</span>
+                  {s.fixed && <span className="text-xs text-muted-foreground">고정 일정</span>}
+                </span>
+                {slot.past && <AttendanceToggle lessonId={s.lessonId} value={s.attendance} name={s.name} />}
               </li>
             ))}
           </ul>
@@ -387,7 +399,7 @@ function SlotDetail({ slot, onSelect }: { slot: CalendarSlot; onSelect: (s: Sele
       </section>
 
       {slot.past ? (
-        <p className="text-xs text-muted-foreground">이미 시작했거나 지난 수업은 바꿀 수 없어요.</p>
+        <p className="text-xs text-muted-foreground">이미 시작했거나 지난 수업은 일정을 바꿀 수 없어요.</p>
       ) : (
         <Button variant="outline" className="text-destructive hover:text-destructive" disabled={pending} onClick={remove}>
           {pending ? "지우는 중..." : "슬롯 삭제"}

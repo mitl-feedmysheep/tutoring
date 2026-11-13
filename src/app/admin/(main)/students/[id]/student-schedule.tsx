@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,8 @@ type Props = {
   lessons: Lesson[];
   slots: Slot[];
   history: HistoryRow[];
+  /** 앞으로의 수업과 변경 이력 사이에 넣을 것 (수업 이력) */
+  children?: ReactNode;
 };
 
 type Open = { kind: "weekly" } | { kind: "add" } | { kind: "move"; lesson: Lesson } | { kind: "cancel"; lesson: Lesson } | null;
@@ -53,7 +55,7 @@ const selectClass =
 const section = "grid gap-3 rounded-lg border bg-background p-4";
 
 // 학생 카드의 일정 부분. 선생님이 바꿀 때는 사유가 필수이고 변경 이력에 남는다 (SCH-16, SCH-17)
-export function StudentSchedule({ studentId, studentName, weekly, choices, lessons, slots, history }: Props) {
+export function StudentSchedule({ studentId, studentName, weekly, choices, lessons, slots, history, children }: Props) {
   const [open, setOpen] = useState<Open>(null);
 
   return (
@@ -122,6 +124,8 @@ export function StudentSchedule({ studentId, studentName, weekly, choices, lesso
           </ul>
         )}
       </section>
+
+      {children}
 
       <section className={section}>
         <h3 className="font-medium">일정 변경 이력</h3>

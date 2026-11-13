@@ -24,7 +24,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       end: start.minute + Math.round((s.endsAt.getTime() - s.startsAt.getTime()) / 60_000),
       weekly: s.weeklySlotId !== null,
       past: s.startsAt <= now,
-      students: s.students.map((x) => ({ name: x.name, fixed: x.fixed })),
+      students: s.students.map((x) => ({ lessonId: x.lessonId, name: x.name, fixed: x.fixed, attendance: x.attendance })),
     };
   });
 

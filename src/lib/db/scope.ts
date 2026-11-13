@@ -223,9 +223,15 @@ function applyForced(model: Model, data: Where, forced: Where): Where {
   return { ...data, ...forced };
 }
 
+/** 출석(완료·결석)은 선생님만 체크한다 (LESSON-01). 학생 범위(선생님이 대신 바꾸기 포함)에서는 쓰지 못한다 */
+function checkTeacherOnlyFields(model: Model, data: Where, scope: Scope) {
+  if (scope.kind === "student" && model === "Lesson" && data.attendance !== undefined) throw new ScopeError("출석은 선생님 범위에서만 체크합니다");
+}
+
 /** 수정 데이터: 범위 필드를 바꾸려 하면 오류 */
 function checkUpdateData(model: Model, data: Where, scope: Scope) {
   forbidNestedWrites(model, data);
+  checkTeacherOnlyFields(model, data, scope);
   if (model === "Teacher") {
     if (data.id !== undefined && data.id !== scope.teacherId) throw new ScopeError("Teacher.id는 바꿀 수 없습니다");
     return;
@@ -298,17 +304,20 @@ export async function applyScope(model: Model, operation: string, args: Where, s
     checkUpdateData(model, args.data ?? {}, scope);
     out = { ...args, where: scopeWhere(args.where, writeFilter(model, scope)) };
   } else if (operation === "create") {
+    checkTeacherOnlyFields(model, args.data ?? {}, scope);
     const data = applyForced(model, args.data ?? {}, forcedFields(model, scope));
     await checkStudentParents(model, data, scope, created);
     out = { ...args, data };
   } else if (operation === "createMany") {
     const forced = forcedFields(model, scope);
     const list: Where[] = Array.isArray(args.data) ? args.data : [args.data];
+    for (const d of list) checkTeacherOnlyFields(model, d ?? {}, scope);
     const data = list.map((d) => applyForced(model, d, forced));
     for (const d of data) await checkStudentParents(model, d, scope, created);
     out = { ...args, data };
   } else if (operation === "upsert") {
     checkUpdateData(model, args.update ?? {}, scope);
+    checkTeacherOnlyFields(model, args.create ?? {}, scope);
     const create = applyForced(model, args.create ?? {}, forcedFields(model, scope));
     await checkStudentParents(model, create, scope, created);
     out = { ...args, where: scopeWhere(args.where, writeFilter(model, scope)), create };

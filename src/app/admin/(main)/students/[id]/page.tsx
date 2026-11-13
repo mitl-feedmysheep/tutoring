@@ -8,6 +8,8 @@ import { clockText, slotText, weeklyText } from "@/lib/schedule/kst";
 import { bookableSlots, upcomingLessons } from "@/lib/schedule/student";
 import { shortWeeklyText, weeklyChoices } from "@/lib/schedule/weekly";
 import { formatKst } from "@/lib/time";
+import { lessonRecords } from "@/lib/lessons/attendance";
+import { LessonRecords } from "./lesson-records";
 import { StudentSchedule, type HistoryRow } from "./student-schedule";
 
 export const metadata: Metadata = { title: "학생 카드" };
@@ -21,7 +23,7 @@ const BY_LABEL = { STUDENT: "학생", TEACHER: "선생님", SYSTEM: "자동" } a
 
 const lessonLabel = (startsAt: Date, endsAt: Date) => `${slotText(startsAt)}–${clockText(endsAt)}`;
 
-// 학생 카드 (ADMIN-01). 지금은 일정: 고정 일정·앞으로의 수업 바꾸기 (SCH-16), 일정 변경 이력 (SCH-17)
+// 학생 카드 (ADMIN-01). 일정: 고정 일정·앞으로의 수업 바꾸기 (SCH-16), 일정 변경 이력 (SCH-17). 수업 이력과 완료·결석 체크 (LESSON-01, 02)
 export default async function StudentCardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { db, teacherId } = await requireTeacher();
@@ -30,11 +32,12 @@ export default async function StudentCardPage({ params }: { params: Promise<{ id
 
   const now = new Date();
   const ctx = await teacherStudentCtx(db, teacherId, profile.id);
-  const [choices, upcoming, slots, history] = await Promise.all([
+  const [choices, upcoming, slots, history, records] = await Promise.all([
     weeklyChoices(ctx, now),
     upcomingLessons(ctx, now),
     bookableSlots(ctx, now),
     scheduleHistory(db, profile.id),
+    lessonRecords(db, profile.id, now),
   ]);
 
   const rows: HistoryRow[] = history.map((h) => ({
@@ -73,7 +76,12 @@ export default async function StudentCardPage({ params }: { params: Promise<{ id
         lessons={upcoming.map((l) => ({ id: l.id, slotId: l.slotId, label: lessonLabel(l.startsAt, l.endsAt), fixed: l.fixed, started: l.startsAt <= now }))}
         slots={slots.map((s) => ({ id: s.id, label: lessonLabel(s.startsAt, s.endsAt), participants: s.participants, mine: s.mine !== null }))}
         history={rows}
-      />
+      >
+        <LessonRecords
+          lessons={records.lessons.map((l) => ({ id: l.id, label: lessonLabel(l.startsAt, l.endsAt), fixed: l.fixed, attendance: l.attendance }))}
+          totals={records.totals}
+        />
+      </StudentSchedule>
     </div>
   );
 }
