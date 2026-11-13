@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, GraduationCap, KeyRound, LogOut, School, Users } from "lucide-react";
+import { CalendarDays, GraduationCap, KeyRound, LogOut, School, Users, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/auth-actions";
 
 const NAV = [
   { name: "일정", href: "/admin/schedule", icon: CalendarDays },
   { name: "학생 관리", href: "/admin/students", icon: Users },
+  { name: "과외비", href: "/admin/payments", icon: Wallet },
 ];
 // 시스템 관리자에게만 보인다. 화면과 액션에서도 따로 막는다
 const ADMIN_NAV = [{ name: "선생님 관리", href: "/admin/teachers", icon: School }];

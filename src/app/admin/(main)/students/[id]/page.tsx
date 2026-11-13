@@ -11,7 +11,9 @@ import { formatKst } from "@/lib/time";
 import { lessonRecords } from "@/lib/lessons/attendance";
 import { notesOf } from "@/lib/lessons/notes";
 import { monthEntries, studySummary, toDbDate, type StudyEntry, type StudyOwner } from "@/lib/study/study";
+import { paidDateText, paymentHistory } from "@/lib/payments/payments";
 import { LessonRecords } from "./lesson-records";
+import { PaymentRecords } from "./payment-records";
 import { StudyRecords } from "./study-records";
 import { StudentSchedule, type HistoryRow } from "./student-schedule";
 
@@ -26,7 +28,7 @@ const BY_LABEL = { STUDENT: "학생", TEACHER: "선생님", SYSTEM: "자동" } a
 
 const lessonLabel = (startsAt: Date, endsAt: Date) => `${slotText(startsAt)}–${clockText(endsAt)}`;
 
-// 학생 카드 (ADMIN-01). 일정: 고정 일정·앞으로의 수업 바꾸기 (SCH-16), 일정 변경 이력 (SCH-17). 수업 이력과 완료·결석 체크 (LESSON-01, 02), 수업 노트 (NOTE-01~03), 공부 기록 (STUDY-06)
+// 학생 카드 (ADMIN-01). 일정: 고정 일정·앞으로의 수업 바꾸기 (SCH-16), 일정 변경 이력 (SCH-17). 수업 이력과 완료·결석 체크 (LESSON-01, 02), 수업 노트 (NOTE-01~03), 공부 기록 (STUDY-06), 과외비 (PAY-03)
 export default async function StudentCardPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ study?: string }> }) {
   const { id } = await params;
   const { db, teacherId } = await requireTeacher();
@@ -42,7 +44,7 @@ export default async function StudentCardPage({ params, searchParams }: { params
     scheduleHistory(db, profile.id),
     lessonRecords(db, profile.id, now),
   ]);
-  const notes = await notesOf(db, records.lessons.map((l) => l.id));
+  const [notes, payments] = await Promise.all([notesOf(db, records.lessons.map((l) => l.id)), paymentHistory(db, profile.id, "next", now)]);
 
   // 공부 기록: 이 학생 것만 (선생님 본인 기록은 student_id가 NULL이라 빠진다)
   const study: StudyOwner = { db, teacherId, studentId: profile.id };
@@ -108,6 +110,11 @@ export default async function StudentCardPage({ params, searchParams }: { params
           nextHref={monthKey(studyMonth) < monthKey(thisMonth) ? studyHref(addMonths(studyMonth, 1)) : null}
           summary={studyTotals}
           days={[...studyDays].map(([date, entries]) => ({ date, label: dayLabel(toDbDate(date)), entries }))}
+        />
+        <PaymentRecords
+          studentId={profile.id}
+          studentName={profile.name}
+          months={(payments ?? []).map((m) => ({ key: m.key, label: `${m.month.year}년 ${m.month.month}월`, paidText: m.paidAt && paidDateText(m.paidAt) }))}
         />
       </StudentSchedule>
     </div>

@@ -10,6 +10,7 @@ import { prisma } from "./client";
 // - include/select로 딸려오는 목록에도 같은 조건을 붙인다
 // - 만들 때 teacher_id(학생이면 student_id, author 등)를 채운다. 다른 값을 넣으면 오류
 // - delete는 막는다. 소프트 삭제는 update로 deletedAt을 넣는다
+// - 지운 행 되살리기: update/updateMany의 최상위 where에 deletedAt 조건을 직접 쓰면 그 조건을 따른다 (범위 조건은 그대로)
 // - 관계 필드로 중첩 쓰기(create/connect 등)는 막는다. 범위 검사를 우회할 수 있어서
 //
 // 직접 챙겨야 하는 것
@@ -302,7 +303,9 @@ export async function applyScope(model: Model, operation: string, args: Where, s
     out = { ...args, where: scopeWhere(args.where, readFilter(model, scope)) };
   } else if (operation === "update" || operation === "updateMany") {
     checkUpdateData(model, args.data ?? {}, scope);
-    out = { ...args, where: scopeWhere(args.where, writeFilter(model, scope)) };
+    const filter = writeFilter(model, scope);
+    if (args.where && Object.hasOwn(args.where, "deletedAt")) delete filter.deletedAt; // 되살리기 (UNIQUE 키가 있는 행)
+    out = { ...args, where: scopeWhere(args.where, filter) };
   } else if (operation === "create") {
     checkTeacherOnlyFields(model, args.data ?? {}, scope);
     const data = applyForced(model, args.data ?? {}, forcedFields(model, scope));
