@@ -200,7 +200,7 @@ export async function createOneOffSlot(db: ScopedDb, input: TimeRange & { year: 
 
 /**
  * SCH-01, SCH-10: 슬롯 지우기. 이미 시작했거나 지난 슬롯은 못 지운다.
- * 예약된 수업도 같이 지운다. 예약했던 학생 id를 돌려준다 (NOTI-03 알림용)
+ * 예약된 수업도 같이 지운다. 예약했던 학생 id(NOTI-03 알림용)와 구글 일정 id(MEET-07)를 돌려준다
  */
 export async function deleteSlot(db: ScopedDb, id: string, now = new Date()) {
   return db.$transaction(async (tx) => {
@@ -209,6 +209,9 @@ export async function deleteSlot(db: ScopedDb, id: string, now = new Date()) {
     if (slot.startsAt <= now) throw new ScheduleError("이미 시작했거나 지난 수업은 지울 수 없어요");
     await tx.slot.update({ where: { id }, data: { deletedAt: now } });
     await tx.lesson.updateMany({ where: { slotId: id }, data: { deletedAt: now } });
-    return { slot: { id: slot.id, startsAt: slot.startsAt }, studentIds: slot.lessons.map((l) => l.studentId) };
+    return {
+      slot: { id: slot.id, startsAt: slot.startsAt, meetingProvider: slot.meetingProvider, meetingExternalId: slot.meetingExternalId },
+      studentIds: slot.lessons.map((l) => l.studentId),
+    };
   });
 }

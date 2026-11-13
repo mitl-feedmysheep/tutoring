@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireTeacher } from "@/lib/auth/session";
 import { notifySlotDeleted } from "@/lib/notify/events";
 import { notifyLater } from "@/lib/notify/later";
+import { deleteSlotMeeting } from "@/lib/meeting/meeting";
 import { parseDateKey, parseTime } from "@/lib/schedule/kst";
 import {
   createOneOffSlot,
@@ -66,6 +67,8 @@ export async function deleteSlotAction(id: string) {
     const { slot, studentIds } = await deleteSlot(db, id);
     // 예약했던 학생들에게 알림 (NOTI-03)
     if (studentIds.length) notifyLater("슬롯 삭제", () => notifySlotDeleted(teacherId, slot, studentIds));
+    // 구글 캘린더 일정도 지운다 (MEET-07). 실패해도 슬롯 삭제는 그대로
+    if (slot.meetingExternalId) notifyLater("구글 일정 삭제", () => deleteSlotMeeting(teacherId, slot));
     return { students: studentIds.length };
   });
 }

@@ -5,6 +5,7 @@ import { dailyCheer } from "@/lib/app/cheer";
 import { nextDayText, timeRangeText } from "@/lib/app/lesson-format";
 import { addMonths, clockText, daysInMonth, kstParts, monthKey, monthOf, parseMonthKey } from "@/lib/schedule/kst";
 import { monthLessons, nextLesson, type StudentCtx } from "@/lib/schedule/student";
+import { nextTeacherSlot } from "@/lib/meeting/meeting";
 import { vapidPublicKey } from "@/lib/push/push";
 import { TabScreen } from "@/components/app/screens";
 import { NotificationPrompt } from "@/components/app/notification-prompt";
@@ -19,8 +20,20 @@ export default async function LessonTab({ searchParams }: { searchParams: Promis
   const title = <span className="text-[15px]">{`${account.name}${isTeacher ? " 선생님" : "님"}, ${dailyCheer()}`}</span>;
 
   if (claims.role !== "student") {
+    // 선생님: 학생이 있는 다음 수업 카드에서 입장 (MEET-04). 나머지 대시보드는 7단계
+    const now = new Date();
+    const slot = await nextTeacherSlot(claims.teacherId, now);
+    const slotView: NextLessonView | null = slot && {
+      id: slot.id,
+      startsAt: slot.startsAt.toISOString(),
+      endsAt: slot.endsAt.toISOString(),
+      dayText: nextDayText(slot.startsAt, now),
+      timeText: timeRangeText(slot.startsAt, slot.endsAt),
+      kindText: `${slot.names.join(", ")} · ${slot.names.length}명`,
+    };
     return (
       <TabScreen title={title}>
+        <NextLessonCard lesson={slotView} emptyAction={false} />
         <Placeholder>오늘·이번 주 수업 목록이 여기에 나와요.</Placeholder>
         <NotificationPrompt publicKey={vapidPublicKey()} />
       </TabScreen>
@@ -34,6 +47,7 @@ export default async function LessonTab({ searchParams }: { searchParams: Promis
 
   const nextView: NextLessonView | null = next && {
     id: next.id,
+    href: `/lessons/${next.id}`,
     startsAt: next.startsAt.toISOString(),
     endsAt: next.endsAt.toISOString(),
     dayText: nextDayText(next.startsAt, now),

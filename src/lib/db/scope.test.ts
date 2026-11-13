@@ -58,6 +58,9 @@ async function createTenant() {
   const pushS1 = await push("s1", s1.id);
   const pushTeacher = await push("t", null);
   const notificationLog = await prisma.notificationLog.create({ data: { teacherId: t, kind: "LESSON_REMINDER", targetKey: slot.id, recipient: s1.id } });
+  const meetingAccount = await prisma.teacherMeetingAccount.create({
+    data: { teacherId: t, provider: "GOOGLE", accountEmail: `g-${tag}@test.local`, refreshToken: "enc", connectedAt: new Date() },
+  });
   const invite = await prisma.invite.create({
     data: { teacherId: t, tokenHash: randomUUID().replace(/-/g, "").padEnd(64, "0"), expiresAt: new Date(Date.now() + 3600_000) },
   });
@@ -65,7 +68,7 @@ async function createTenant() {
   return {
     teacher, s1, s2, weeklySlot, slot, monthlySlotHistory, weeklyLesson, lesson1, lesson2, teacherNote, studentNote, otherNote,
     scheduleChange, studyLog, ownStudyLog, photo, openMaterial, closedMaterial, fileAccess, payment, board, otherBoard,
-    teacherComment, invite, pushS1, pushTeacher, notificationLog,
+    teacherComment, invite, pushS1, pushTeacher, notificationLog, meetingAccount,
     /** 모델마다 이 선생님 소유인 행 하나 */
     rowOf: {} as Record<Model, { id: string }>,
   };
@@ -78,7 +81,7 @@ function fillRows(x: Tenant) {
     Teacher: x.teacher, Student: x.s1, Invite: x.invite, WeeklySlot: x.weeklySlot, Slot: x.slot, MonthlySlotHistory: x.monthlySlotHistory, WeeklyLesson: x.weeklyLesson,
     Lesson: x.lesson1, ScheduleChange: x.scheduleChange, LessonNote: x.teacherNote, StudyLog: x.studyLog, File: x.photo,
     FileAccess: x.fileAccess, Payment: x.payment, Board: x.board, Comment: x.teacherComment,
-    PushSubscription: x.pushS1, NotificationLog: x.notificationLog,
+    PushSubscription: x.pushS1, NotificationLog: x.notificationLog, TeacherMeetingAccount: x.meetingAccount,
   };
   return x;
 }
@@ -211,6 +214,7 @@ describe("학생 범위", () => {
     expect((await db.board.findMany()).map((b) => b.id)).not.toContain(A.otherBoard.id);
     expect(await db.invite.findMany()).toEqual([]);
     expect(await db.notificationLog.findMany()).toEqual([]);
+    expect(await db.teacherMeetingAccount.findMany()).toEqual([]);
   });
 
   it("수업 노트는 학생 노트만 보인다", async () => {
@@ -289,6 +293,8 @@ describe("학생 범위", () => {
     await expect(db.fileAccess.create({ data: { fileId: A.closedMaterial.id } as any })).rejects.toBeInstanceOf(ScopeError);
     await expect(db.invite.updateMany({ data: { revokedAt: new Date() } })).rejects.toBeInstanceOf(ScopeError);
     await expect(db.monthlySlotHistory.create({ data: { month: new Date("2027-02-01") } as any })).rejects.toBeInstanceOf(ScopeError);
+    await expect(db.teacherMeetingAccount.updateMany({ data: { accountEmail: "x" } })).rejects.toBeInstanceOf(ScopeError);
+    await expect(db.slot.updateMany({ data: { meetingUrl: "https://evil.test" } })).rejects.toBeInstanceOf(ScopeError);
     expect(await db.monthlySlotHistory.findMany()).toEqual([]);
   });
 });

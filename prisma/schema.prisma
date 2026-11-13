@@ -54,6 +54,17 @@ enum NotificationKind {
   TEACHER_CHANGED
 }
 
+/// 화상 수업 방식 (MEET-06). 나중에 ZOOM을 더한다
+enum MeetingProvider {
+  GOOGLE_MEET
+  FIXED_LINK
+}
+
+/// 선생님이 연결한 외부 계정 종류 (MEET-01)
+enum MeetingAccountProvider {
+  GOOGLE
+}
+
 enum FileKind {
   STUDY_PHOTO
   MATERIAL
@@ -61,17 +72,21 @@ enum FileKind {
 
 /// 선생님 = 테넌트
 model Teacher {
-  id                 String    @id @default(uuid(7)) @db.Char(36)
-  name               String    @db.VarChar(50)
-  email              String    @unique @db.VarChar(100)
-  passwordHash       String    @map("password_hash") @db.VarChar(100)
-  mustChangePassword Boolean   @default(false) @map("must_change_password")
-  sessionVersion     Int       @default(0) @map("session_version")
+  id                 String           @id @default(uuid(7)) @db.Char(36)
+  name               String           @db.VarChar(50)
+  email              String           @unique @db.VarChar(100)
+  passwordHash       String           @map("password_hash") @db.VarChar(100)
+  mustChangePassword Boolean          @default(false) @map("must_change_password")
+  sessionVersion     Int              @default(0) @map("session_version")
   /// 시스템 관리자. 어드민에서 다른 선생님 계정을 만들 수 있다
-  isAdmin            Boolean   @default(false) @map("is_admin")
-  createdAt          DateTime  @default(now()) @map("created_at") @db.DateTime(3)
-  updatedAt          DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
-  deletedAt          DateTime? @map("deleted_at") @db.DateTime(3)
+  isAdmin            Boolean          @default(false) @map("is_admin")
+  /// 화상 수업 방식 (MEET-06). NULL = 아직 안 고름
+  meetingProvider    MeetingProvider? @map("meeting_provider")
+  /// 고정 링크 방식일 때 모든 수업에서 여는 링크 (Zoom 개인 회의실 등)
+  meetingFixedUrl    String?          @map("meeting_fixed_url") @db.VarChar(500)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt          DateTime?        @map("deleted_at") @db.DateTime(3)
 
   students             Student[]
   invites              Invite[]
@@ -82,6 +97,7 @@ model Teacher {
   monthlySlotHistories MonthlySlotHistory[]
   pushSubscriptions    PushSubscription[]
   notificationLogs     NotificationLog[]
+  meetingAccounts      TeacherMeetingAccount[]
 
   @@map("teacher")
 }
@@ -166,15 +182,20 @@ model WeeklySlot {
 
 /// 그 날의 수업 시간 한 칸. 같은 시간 학생들이 공유한다
 model Slot {
-  id           String    @id @default(uuid(7)) @db.Char(36)
-  teacherId    String    @map("teacher_id") @db.Char(36)
+  id                String           @id @default(uuid(7)) @db.Char(36)
+  teacherId         String           @map("teacher_id") @db.Char(36)
   /// NULL = 1회성 슬롯
-  weeklySlotId String?   @map("weekly_slot_id") @db.Char(36)
-  startsAt     DateTime  @map("starts_at") @db.DateTime(3)
-  endsAt       DateTime  @map("ends_at") @db.DateTime(3)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.DateTime(3)
-  updatedAt    DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
-  deletedAt    DateTime? @map("deleted_at") @db.DateTime(3)
+  weeklySlotId      String?          @map("weekly_slot_id") @db.Char(36)
+  startsAt          DateTime         @map("starts_at") @db.DateTime(3)
+  endsAt            DateTime         @map("ends_at") @db.DateTime(3)
+  /// 입장 링크를 만든 방식. 링크를 만든 슬롯만 채운다 (MEET-02)
+  meetingProvider   MeetingProvider? @map("meeting_provider")
+  meetingUrl        String?          @map("meeting_url") @db.VarChar(500)
+  /// 외부 일정 id (구글 캘린더 일정 id). 슬롯을 지우면 이걸로 일정도 지운다 (MEET-07)
+  meetingExternalId String?          @map("meeting_external_id") @db.VarChar(255)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt         DateTime?        @map("deleted_at") @db.DateTime(3)
 
   teacher    Teacher     @relation(fields: [teacherId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   weeklySlot WeeklySlot? @relation(fields: [teacherId, weeklySlotId], references: [teacherId, id], onDelete: Restrict, onUpdate: Restrict)
@@ -464,4 +485,24 @@ model NotificationLog {
 
   @@unique([teacherId, kind, targetKey, recipient])
   @@map("notification_log")
+}
+
+/// 선생님이 연결한 화상 수업 계정 (MEET-01). 선생님마다 서비스당 한 줄. 연결을 끊으면 소프트 삭제, 다시 연결하면 되살린다
+model TeacherMeetingAccount {
+  id           String                 @id @default(uuid(7)) @db.Char(36)
+  teacherId    String                 @map("teacher_id") @db.Char(36)
+  provider     MeetingAccountProvider
+  /// 연결한 계정 이메일 (화면 표시용)
+  accountEmail String                 @map("account_email") @db.VarChar(255)
+  /// 리프레시 토큰. MEETING_TOKEN_KEY로 암호화한 값 (AES-256-GCM)
+  refreshToken String                 @map("refresh_token") @db.VarChar(2048)
+  connectedAt  DateTime               @map("connected_at") @db.DateTime(3)
+  createdAt    DateTime               @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt    DateTime               @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt    DateTime?              @map("deleted_at") @db.DateTime(3)
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([teacherId, provider])
+  @@map("teacher_meeting_account")
 }

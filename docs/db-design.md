@@ -135,7 +135,7 @@
 
 - 주의: 월말 생성(마지막 날 00:00)이 끝난 뒤 같은 날 고치면 다음 달은 이미 만들어져 있으므로 그 다음 달부터 반영된다. 화면에서 안내한다.
 
-## 4. 테이블 (17개)
+## 4. 테이블 (18개)
 
 공통 컬럼(`id`, `created_at`, `updated_at`, `deleted_at`)은 표에서 생략한다.
 
@@ -149,6 +149,8 @@
 | must_change_password | BOOLEAN | 어드민에서 임시 비밀번호로 만든 계정은 첫 로그인 때 변경 |
 | session_version | INT | 비밀번호 변경·초기화 때 +1 → 기존 로그인 무효화 |
 | is_admin | BOOLEAN | 시스템 관리자. 다른 선생님 계정을 만든다 (ADMIN-05) |
+| meeting_provider | ENUM NULL | 화상 수업 방식 `GOOGLE_MEET` / `FIXED_LINK` (MEET-06). NULL = 아직 안 고름. 나중에 `ZOOM` |
+| meeting_fixed_url | VARCHAR(500) NULL | 고정 링크 방식에서 모든 수업에 여는 링크 (Zoom 개인 회의실 등). 한 번 넣고 바꿀 때만 고친다 |
 
 ### student
 
@@ -206,9 +208,12 @@
 | teacher_id | CHAR(36) FK | |
 | weekly_slot_id | CHAR(36) NULL | 복합 FK → weekly_slot. NULL = 1회성 슬롯 (SCH-12) |
 | starts_at, ends_at | DATETIME | UTC |
+| meeting_provider | ENUM NULL | 이 슬롯 링크를 만든 방식. 고정 링크는 슬롯에 저장하지 않는다 |
+| meeting_url | VARCHAR(500) NULL | 수업마다 만든 입장 링크 (Google Meet). 수업 10분 전 또는 처음 들어갈 때 (MEET-05) |
+| meeting_external_id | VARCHAR(255) NULL | 구글 캘린더 일정 id. 슬롯 id에서 정해서(하이픈 제거) 같은 슬롯에 일정이 두 번 생기지 않는다. 슬롯을 지우면 일정도 지운다 (MEET-07) |
 
 - `UNIQUE (teacher_id, id)`, `UNIQUE (weekly_slot_id, starts_at)`, `INDEX (teacher_id, starts_at)`
-- 1:다 수업에서 학생들이 공유하는 단위. 참여 학생 수 표시(SCH-02), Meet 링크(6단계)가 여기 붙는다.
+- 1:다 수업에서 학생들이 공유하는 단위. 참여 학생 수 표시(SCH-02), Meet 링크가 여기 붙는다.
 - 특정 날 휴강 = 그 slot 삭제. 연결된 lesson도 같이 삭제 표시하고 학생에게 알림 (SCH-10). 이미 시작했거나 지난 slot은 삭제 막음.
 - 선생님 slot끼리 시간이 겹치지 않게 앱에서 검사한다 (1회성 slot 추가 때, 같은 요일 고정 시간끼리) (SCH-18).
 
@@ -386,9 +391,24 @@ comment
 - `recipient`는 외래키가 아니다. 선생님을 NULL로 두면 UNIQUE가 NULL끼리 중복을 막지 못해서 문자열로 둔다.
 - 오래된 기록 정리는 필요해지면 그때 만든다.
 
+### teacher_meeting_account (선생님이 연결한 화상 수업 계정, MEET-01)
+
+| 컬럼 | 타입 | 설명 |
+|---|---|---|
+| teacher_id | CHAR(36) FK | |
+| provider | ENUM | `GOOGLE` (나중에 `ZOOM`) |
+| account_email | VARCHAR(255) | 연결한 계정 이메일 (화면 표시용) |
+| refresh_token | VARCHAR(2048) | 리프레시 토큰. `MEETING_TOKEN_KEY`로 AES-256-GCM 암호화 (`v1.iv.tag.암호문`) |
+| connected_at | DATETIME | 연결한 때. 다시 연결하면 바뀌고, 메모리의 액세스 토큰도 새로 받는다 |
+
+- `UNIQUE (teacher_id, provider)`: 선생님당 서비스 하나. 끊으면 소프트 삭제, 다시 연결하면 같은 줄을 되살린다.
+- 구글에서 권한을 취소하면(토큰 갱신이 `invalid_grant`) 앱이 연결을 끊는다(소프트 삭제).
+- teacher 테이블은 학생 범위에서도 읽히므로 토큰은 별도 테이블에 두고, 학생 범위에서는 이 테이블이 안 보인다.
+- 구글 프로젝트(OAuth 클라이언트)는 하나를 같이 쓰고, 일정과 Meet는 각 선생님 캘린더에 만들어진다.
+
 ## 5. 나중 단계에서 추가할 것
 
 | 단계 | 추가 |
 |---|---|
 | 5단계 알림 | `notification_log` (스케줄러 중복 발송 막기, 필요하면) |
-| 6단계 Meet | teacher: 구글 리프레시 토큰(암호화). slot: `google_event_id`, `meet_url` |
+| ~~6단계 Meet~~ | 추가함: `teacher_meeting_account`, teacher·slot의 meeting 컬럼 (2026-11-13) |
