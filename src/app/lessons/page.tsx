@@ -22,14 +22,15 @@ export default async function MyLessons({ searchParams }: { searchParams: Promis
   return (
     <SubScreen title="내 수업" fallback="/">
       <Card>
-        <Row>
-          <span className="min-w-0">
-            고정 일정
-            <small className="ml-2 text-[13px] text-muted-foreground">{weeklyText(weekly)}</small>
-          </span>
-          {/* TODO: 고정 일정 고르기·바꾸기 (SCH-04, SCH-14) */}
-          <span className="shrink-0 text-xs text-muted-foreground">준비 중</span>
-        </Row>
+        <Link href="/lessons/weekly" className="block transition-colors hover:bg-accent/50">
+          <Row>
+            <span className="min-w-0">
+              고정 일정
+              <small className="ml-2 text-[13px] text-muted-foreground">{weeklyText(weekly)}</small>
+            </span>
+            <span className="shrink-0 text-sm font-bold text-primary">{weekly.length ? "바꾸기 ›" : "정하기 ›"}</span>
+          </Row>
+        </Link>
       </Card>
 
       <div className="grid grid-cols-2 rounded-xl bg-muted p-1 text-center text-sm">

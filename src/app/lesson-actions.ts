@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { requireStudent } from "@/lib/auth/session";
 import { bookSlot, cancelLesson, moveLesson } from "@/lib/schedule/student";
 import { ScheduleError } from "@/lib/schedule/teacher";
+import { applyWeeklyChange, planWeeklyChange, type WeeklyMode } from "@/lib/schedule/weekly";
 
-// 학생 예약·취소·옮기기 액션. teacherId·studentId는 requireStudent(서버 세션)에서만 나오고, 클라이언트는 대상 id만 보낸다
+// 학생 예약·취소·옮기기·고정 일정 바꾸기 액션. teacherId·studentId는 requireStudent(서버 세션)에서만 나오고, 클라이언트는 대상 id만 보낸다
 
 export type ActionResult<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -47,5 +48,24 @@ export async function moveLessonAction(lessonId: string, slotId: string) {
     const result = await moveLesson(ctx, checkId(lessonId), checkId(slotId));
     // TODO(5단계): 선생님에게 알림 (NOTI-02)
     return result;
+  });
+}
+
+export async function planWeeklyChangeAction(weeklySlotIds: string[]) {
+  const ctx = await requireStudent();
+  try {
+    return { ok: true as const, plan: await planWeeklyChange(ctx, weeklySlotIds) };
+  } catch (e) {
+    if (e instanceof ScheduleError) return { ok: false as const, error: e.message };
+    throw e;
+  }
+}
+
+export async function applyWeeklyChangeAction(weeklySlotIds: string[], mode: WeeklyMode) {
+  const ctx = await requireStudent();
+  return run(async () => {
+    await applyWeeklyChange(ctx, weeklySlotIds, mode);
+    // TODO(5단계): 선생님에게 알림 (NOTI-02)
+    return {};
   });
 }

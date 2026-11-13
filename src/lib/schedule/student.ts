@@ -7,7 +7,7 @@ import { ScheduleError } from "./teacher";
 
 export type StudentCtx = { db: ScopedDb; teacherId: string; studentId: string };
 
-type Tx = Parameters<Parameters<ScopedDb["$transaction"]>[0]>[0];
+export type Tx = Parameters<Parameters<ScopedDb["$transaction"]>[0]>[0];
 
 /** SCH-08: 예약·취소·옮기기는 수업 시작 1시간 전까지 */
 export const CHANGE_DEADLINE_MS = 60 * 60_000;
@@ -154,7 +154,7 @@ export async function bookableSlots(ctx: StudentCtx, now = new Date()): Promise<
 
 // ─── 예약·취소·옮기기 ─────────────────────────────────────────────
 
-const isUniqueError = (e: unknown) => e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
+export const isUniqueError = (e: unknown) => e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
 
 /** 그 슬롯에 내 수업을 잡는다. 전에 취소한 수업이 있으면 되살린다 (slot·student는 UNIQUE) */
 async function bookInTx(tx: Tx, slotId: string, now: Date) {
@@ -220,17 +220,20 @@ export async function cancelLesson(ctx: StudentCtx, lessonId: string, now = new 
  */
 export async function moveLesson(ctx: StudentCtx, lessonId: string, slotId: string, now = new Date()) {
   try {
-    return await ctx.db.$transaction(async (tx) => {
-      const from = await cancelInTx(tx, lessonId, now);
-      if (from.id === slotId) throw new ScheduleError("지금 수업과 같은 시간이에요");
-      const to = await bookInTx(tx, slotId, now);
-      await tx.scheduleChange.create({
-        data: { lessonId, action: "MOVE", beforeText: slotText(from.startsAt), afterText: slotText(to.startsAt) } as never,
-      });
-      return { lessonId: to.lessonId };
-    });
+    return await ctx.db.$transaction((tx) => moveInTx(tx, lessonId, slotId, now));
   } catch (e) {
     if (isUniqueError(e)) throw new ScheduleError("이미 예약한 수업이에요");
     throw e;
   }
+}
+
+/** 옮기기 본체. 고정 일정 "이번만"(weekly.ts)도 같이 쓴다 */
+export async function moveInTx(tx: Tx, lessonId: string, slotId: string, now: Date) {
+  const from = await cancelInTx(tx, lessonId, now);
+  if (from.id === slotId) throw new ScheduleError("지금 수업과 같은 시간이에요");
+  const to = await bookInTx(tx, slotId, now);
+  await tx.scheduleChange.create({
+    data: { lessonId, action: "MOVE", beforeText: slotText(from.startsAt), afterText: slotText(to.startsAt) } as never,
+  });
+  return { lessonId: to.lessonId };
 }
