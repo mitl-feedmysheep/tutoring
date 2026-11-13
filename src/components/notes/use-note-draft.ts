@@ -30,21 +30,22 @@ export function discardNoteDraft(key: string) {
 }
 
 /** value: 지금 칸의 내용, saved: 서버에 저장된 내용. 돌려주는 clear()는 저장에 성공한 뒤 부른다 */
-export function useNoteDraft(key: string, value: string, saved: string, restore: (draft: string) => void) {
+export function useNoteDraft(key: string, value: string, saved: string, restore: (draft: string) => void, message = "저장하지 않은 노트를 불러왔어요", enabled = true) {
   const loaded = useRef(false);
 
   // 바뀔 때마다 보관한다. 아래 불러오기보다 먼저 선언해서, 처음 그릴 때는 불러오기 전이라 건너뛴다
   useEffect(() => {
-    if (!loaded.current) return;
+    if (!enabled || !loaded.current) return;
     write(key, cleanNote(value) === saved ? null : value);
-  }, [key, value, saved]);
+  }, [enabled, key, value, saved]);
 
   // 처음 한 번: 남아 있는 임시 내용이 저장된 것과 다르면 불러온다 (서버 화면과 어긋나지 않게 그린 뒤에)
   useEffect(() => {
+    if (!enabled) return;
     const draft = read(key);
     if (draft !== null && cleanNote(draft) !== saved) {
       restore(draft);
-      toast("저장하지 않은 노트를 불러왔어요");
+      toast(message);
     } else if (draft !== null) {
       write(key, null);
     }

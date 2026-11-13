@@ -11,7 +11,8 @@ export type SessionClaims =
   | { role: "teacher"; teacherId: string; v: number }
   | { role: "student"; teacherId: string; studentId: string; v: number };
 
-function secret() {
+/** 세션·업로드 표 서명 키. 용도는 토큰의 audience로 나눈다 */
+export function secret() {
   const value = process.env.JWT_SECRET;
   if (!value || value.length < 32) throw new Error("JWT_SECRET이 없거나 32자보다 짧습니다");
   return new TextEncoder().encode(value);

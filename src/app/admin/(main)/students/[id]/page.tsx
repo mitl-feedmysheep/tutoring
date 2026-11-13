@@ -4,13 +4,15 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireTeacher } from "@/lib/auth/session";
 import { scheduleHistory, studentProfile, teacherStudentCtx } from "@/lib/admin/student-schedule";
-import { clockText, slotText, weeklyText } from "@/lib/schedule/kst";
+import { addMonths, clockText, dayLabel, monthKey, monthOf, parseMonthKey, slotText, weeklyText } from "@/lib/schedule/kst";
 import { bookableSlots, upcomingLessons } from "@/lib/schedule/student";
 import { shortWeeklyText, weeklyChoices } from "@/lib/schedule/weekly";
 import { formatKst } from "@/lib/time";
 import { lessonRecords } from "@/lib/lessons/attendance";
 import { notesOf } from "@/lib/lessons/notes";
+import { monthEntries, studySummary, toDbDate, type StudyEntry, type StudyOwner } from "@/lib/study/study";
 import { LessonRecords } from "./lesson-records";
+import { StudyRecords } from "./study-records";
 import { StudentSchedule, type HistoryRow } from "./student-schedule";
 
 export const metadata: Metadata = { title: "학생 카드" };
@@ -24,8 +26,8 @@ const BY_LABEL = { STUDENT: "학생", TEACHER: "선생님", SYSTEM: "자동" } a
 
 const lessonLabel = (startsAt: Date, endsAt: Date) => `${slotText(startsAt)}–${clockText(endsAt)}`;
 
-// 학생 카드 (ADMIN-01). 일정: 고정 일정·앞으로의 수업 바꾸기 (SCH-16), 일정 변경 이력 (SCH-17). 수업 이력과 완료·결석 체크 (LESSON-01, 02), 수업 노트 (NOTE-01~03)
-export default async function StudentCardPage({ params }: { params: Promise<{ id: string }> }) {
+// 학생 카드 (ADMIN-01). 일정: 고정 일정·앞으로의 수업 바꾸기 (SCH-16), 일정 변경 이력 (SCH-17). 수업 이력과 완료·결석 체크 (LESSON-01, 02), 수업 노트 (NOTE-01~03), 공부 기록 (STUDY-06)
+export default async function StudentCardPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ study?: string }> }) {
   const { id } = await params;
   const { db, teacherId } = await requireTeacher();
   const profile = await studentProfile(db, id);
@@ -41,6 +43,16 @@ export default async function StudentCardPage({ params }: { params: Promise<{ id
     lessonRecords(db, profile.id, now),
   ]);
   const notes = await notesOf(db, records.lessons.map((l) => l.id));
+
+  // 공부 기록: 이 학생 것만 (선생님 본인 기록은 student_id가 NULL이라 빠진다)
+  const study: StudyOwner = { db, teacherId, studentId: profile.id };
+  const thisMonth = monthOf(now);
+  const asked = parseMonthKey((await searchParams).study);
+  const studyMonth = asked && monthKey(asked) <= monthKey(thisMonth) ? asked : thisMonth;
+  const [studyTotals, studyRows] = await Promise.all([studySummary(study, now), monthEntries(study, studyMonth)]);
+  const studyDays = new Map<string, StudyEntry[]>();
+  for (const e of studyRows) (studyDays.get(e.date) ?? studyDays.set(e.date, []).get(e.date)!).push(e);
+  const studyHref = (ym: typeof thisMonth) => `/admin/students/${profile.id}?study=${monthKey(ym)}#study`;
 
   const rows: HistoryRow[] = history.map((h) => ({
     id: h.id,
@@ -89,6 +101,13 @@ export default async function StudentCardPage({ params }: { params: Promise<{ id
             notes: notes.get(l.id) ?? { teacher: "", student: "" },
           }))}
           totals={records.totals}
+        />
+        <StudyRecords
+          monthLabel={`${studyMonth.year}년 ${studyMonth.month}월`}
+          prevHref={studyHref(addMonths(studyMonth, -1))}
+          nextHref={monthKey(studyMonth) < monthKey(thisMonth) ? studyHref(addMonths(studyMonth, 1)) : null}
+          summary={studyTotals}
+          days={[...studyDays].map(([date, entries]) => ({ date, label: dayLabel(toDbDate(date)), entries }))}
         />
       </StudentSchedule>
     </div>
