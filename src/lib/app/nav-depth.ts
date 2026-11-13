@@ -4,8 +4,9 @@
 
 export type NavKind = "push" | "replace" | "pop";
 
-export function nextDepth(depth: number, kind: NavKind) {
+/** steps: pop일 때 한 번에 몇 화면 돌아갔는지 (history.go(-n)) */
+export function nextDepth(depth: number, kind: NavKind, steps = 1) {
   if (kind === "push") return depth + 1;
-  if (kind === "pop") return Math.max(0, depth - 1);
+  if (kind === "pop") return Math.max(0, depth - steps);
   return depth; // 탭 이동, ← 버튼의 탭 이동은 기록을 쌓지 않는다
 }

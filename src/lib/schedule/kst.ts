@@ -111,3 +111,27 @@ export function weeklyOccurrences(w: { weekday: number; startMinute: number; end
   }
   return out;
 }
+
+/** "11/14 (토)" */
+export function dayLabel(date: Date) {
+  const p = kstParts(date);
+  return `${p.month}/${String(p.day).padStart(2, "0")} (${WEEKDAYS[p.weekday]})`;
+}
+
+/** "19:00" (KST) */
+export function clockText(date: Date) {
+  return formatMinute(kstParts(date).minute);
+}
+
+/** "오후 7:00" (KST) */
+export function ampmText(date: Date) {
+  const m = kstParts(date).minute;
+  const h = Math.floor(m / 60);
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h < 12 ? "오전" : "오후"} ${h12}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/** "11/14(토) 10:00" (일정 변경 이력용) */
+export function slotText(startsAt: Date) {
+  return `${dayLabel(startsAt).replace(" ", "")} ${clockText(startsAt)}`;
+}

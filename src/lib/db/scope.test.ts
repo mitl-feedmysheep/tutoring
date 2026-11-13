@@ -243,6 +243,20 @@ describe("학생 범위", () => {
     await expect(db.lessonNote.create({ data: { lessonId: A.lesson1.id, author: "TEACHER", content: "x" } as any })).rejects.toBeInstanceOf(ScopeError);
   });
 
+  it("같은 트랜잭션에서 방금 만든 내 수업에는 이력을 달 수 있고, 다른 학생 수업에는 여전히 안 된다", async () => {
+    const db = s1db();
+    const slot = await prisma.slot.create({
+      data: { teacherId: A.teacher.id, startsAt: new Date("2026-12-20T10:00:00Z"), endsAt: new Date("2026-12-20T11:00:00Z") },
+    });
+    const change = await db.$transaction(async (tx) => {
+      const lesson = await tx.lesson.create({ data: { slotId: slot.id } as any });
+      return tx.scheduleChange.create({ data: { lessonId: lesson.id, action: "ADD" } as any });
+    });
+    expect(change.studentId).toBe(A.s1.id);
+    // 내 수업을 하나 만든 뒤라도 다른 학생 수업은 막힌다
+    await expect(db.scheduleChange.create({ data: { lessonId: A.lesson2.id, action: "ADD" } as any })).rejects.toBeInstanceOf(ScopeError);
+  });
+
   it("선생님 노트·댓글, 다른 학생 노트는 수정할 수 없다", async () => {
     const db = s1db();
     expect((await db.lessonNote.updateMany({ where: { id: A.teacherNote.id }, data: { content: "hack" } })).count).toBe(0);

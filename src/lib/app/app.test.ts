@@ -33,4 +33,9 @@ describe("nextDepth", () => {
   it("앱 밖에서 들어와 뒤로 가도 0 아래로 내려가지 않는다", () => {
     expect(nextDepth(0, "pop")).toBe(0);
   });
+
+  it("한 번에 여러 화면 뒤로 가면 그만큼 줄어든다 (옮긴 뒤 수업·옮기기 화면 건너뛰기)", () => {
+    expect(nextDepth(3, "pop", 2)).toBe(1);
+    expect(nextDepth(1, "pop", 2)).toBe(0);
+  });
 });

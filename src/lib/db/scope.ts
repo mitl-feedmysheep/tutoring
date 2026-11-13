@@ -165,11 +165,16 @@ const STUDENT_PARENTS: Partial<Record<Model, { field: string; model: Model }[]>>
   ],
 };
 
-async function checkStudentParents(model: Model, data: Where, scope: Scope) {
+/**
+ * created: 이 학생 범위로 직접 만든 행("Lesson:id"). 만들 때 student_id를 강제했으니 본인 것이다.
+ * 부모 확인은 트랜잭션 밖 연결로 하므로, 같은 트랜잭션에서 방금 만든 부모는 여기로 확인한다
+ */
+async function checkStudentParents(model: Model, data: Where, scope: Scope, created?: Set<string>) {
   if (scope.kind !== "student") return;
   for (const { field, model: parent } of STUDENT_PARENTS[model] ?? []) {
     const id = data[field];
     if (id == null) continue;
+    if (created?.has(`${parent}:${id}`)) continue;
     const delegate = (prisma as any)[lowerFirst(parent)];
     const found = await delegate.count({ where: { id, ...readFilter(parent, scope) } });
     if (!found) throw new ScopeError(`${model}.${field}가 본인 것이 아닙니다`);
@@ -277,7 +282,7 @@ const READ_OPS = new Set([
 ]);
 
 /** 쿼리 인자에 범위를 적용한다. 테스트에서도 쓴다 */
-export async function applyScope(model: Model, operation: string, args: Where, scope: Scope): Promise<Where> {
+export async function applyScope(model: Model, operation: string, args: Where, scope: Scope, created?: Set<string>): Promise<Where> {
   let out: Where;
   if (READ_OPS.has(operation)) {
     out = { ...args, where: scopeWhere(args.where, readFilter(model, scope)) };
@@ -286,18 +291,18 @@ export async function applyScope(model: Model, operation: string, args: Where, s
     out = { ...args, where: scopeWhere(args.where, writeFilter(model, scope)) };
   } else if (operation === "create") {
     const data = applyForced(model, args.data ?? {}, forcedFields(model, scope));
-    await checkStudentParents(model, data, scope);
+    await checkStudentParents(model, data, scope, created);
     out = { ...args, data };
   } else if (operation === "createMany") {
     const forced = forcedFields(model, scope);
     const list: Where[] = Array.isArray(args.data) ? args.data : [args.data];
     const data = list.map((d) => applyForced(model, d, forced));
-    for (const d of data) await checkStudentParents(model, d, scope);
+    for (const d of data) await checkStudentParents(model, d, scope, created);
     out = { ...args, data };
   } else if (operation === "upsert") {
     checkUpdateData(model, args.update ?? {}, scope);
     const create = applyForced(model, args.create ?? {}, forcedFields(model, scope));
-    await checkStudentParents(model, create, scope);
+    await checkStudentParents(model, create, scope, created);
     out = { ...args, where: scopeWhere(args.where, writeFilter(model, scope)), create };
   } else if (operation === "delete" || operation === "deleteMany") {
     throw new ScopeError("delete는 쓰지 않습니다. update로 deletedAt을 넣어 소프트 삭제하세요");
@@ -308,12 +313,18 @@ export async function applyScope(model: Model, operation: string, args: Where, s
 }
 
 function scoped(scope: Scope) {
+  const created = new Set<string>();
   return prisma.$extends({
     name: `scope-${scope.kind}`,
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
-          return query((await applyScope(model as Model, operation, (args ?? {}) as Where, scope)) as any);
+          const result: any = await query((await applyScope(model as Model, operation, (args ?? {}) as Where, scope, created)) as any);
+          // create·upsert 결과는 범위 값을 강제했거나 범위 안의 행이라 본인 것이다
+          if (scope.kind === "student" && (operation === "create" || operation === "upsert") && typeof result?.id === "string") {
+            created.add(`${model}:${result.id}`);
+          }
+          return result;
         },
       },
     },
