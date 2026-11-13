@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireTeacher } from "@/lib/auth/session";
-import { listStudents, RESET_PASSWORD } from "@/lib/admin/students";
+import { listDeactivatedStudents, listStudents, RESET_PASSWORD } from "@/lib/admin/students";
 import { formatKst } from "@/lib/time";
 import { ResetPasswordButton } from "./reset-button";
 
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "학생 목록" };
 
 export default async function StudentsPage() {
   const { db } = await requireTeacher();
-  const students = await listStudents(db);
+  const [students, inactive] = await Promise.all([listStudents(db), listDeactivatedStudents(db)]);
 
   return (
     <div className="grid grid-cols-1 gap-4">
@@ -55,6 +55,26 @@ export default async function StudentsPage() {
             </TableBody>
           </Table>
         </div>
+      )}
+
+      {/* ADMIN-04: 비활성 학생은 목록에서 숨기고 여기에 접어 둔다. 눌러서 기록을 보고 다시 활성화한다 */}
+      {inactive.length > 0 && (
+        <details className="rounded-lg border bg-background">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-muted-foreground">비활성 학생 {inactive.length}명</summary>
+          <ul className="grid divide-y border-t">
+            {inactive.map((s) => (
+              <li key={s.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2.5 text-sm">
+                <span>
+                  <Link href={`/admin/students/${s.id}`} className="font-medium text-emerald-700 hover:underline">
+                    {s.name}
+                  </Link>
+                  <span className="ml-2 text-muted-foreground">{s.email}</span>
+                </span>
+                <span className="text-xs text-muted-foreground tabular-nums">{formatKst(s.deactivatedAt)} 비활성화</span>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </div>
   );

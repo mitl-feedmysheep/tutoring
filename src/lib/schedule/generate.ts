@@ -13,10 +13,23 @@ export async function isMonthGenerated(db: ScopedDb | Tx, ym: YearMonth) {
 
 /**
  * 고정 시간 하나의 슬롯을 그 달에 만든다. after보다 늦은 것만.
- * UNIQUE (weekly_slot_id, starts_at) + skipDuplicates라서 이미 있거나 선생님이 지운 날은 다시 생기지 않는다
+ * UNIQUE (weekly_slot_id, starts_at) + skipDuplicates라서 이미 있거나 선생님이 지운 날은 다시 생기지 않는다.
+ * 다른 슬롯과 겹치는 날은 만들지 않는다 (SCH-18). 등록·1회성 슬롯에서 미리 막으므로 보통은 없다
  */
 export async function createWeeklySlotsInMonth(tx: Tx, w: WeeklyTime, ym: YearMonth, after: Date) {
-  const data = weeklyOccurrences(w, ym, after).map((o) => ({ weeklySlotId: w.id, ...o }));
+  const occurrences = weeklyOccurrences(w, ym, after);
+  if (occurrences.length === 0) return;
+  const { start, end } = monthRange(ym);
+  const others = await tx.slot.findMany({
+    where: { startsAt: { gte: start, lt: end }, OR: [{ weeklySlotId: null }, { weeklySlotId: { not: w.id } }] },
+    select: { startsAt: true, endsAt: true },
+  });
+  const free = occurrences.filter((o) => {
+    const hit = others.some((s) => s.startsAt < o.endsAt && s.endsAt > o.startsAt);
+    if (hit) console.warn(`[schedule] 겹치는 슬롯이 있어 건너뜀 weeklySlot=${w.id} at=${o.startsAt.toISOString()}`);
+    return !hit;
+  });
+  const data = free.map((o) => ({ weeklySlotId: w.id, ...o }));
   if (data.length === 0) return;
   await tx.slot.createMany({ data: data as never, skipDuplicates: true });
 }

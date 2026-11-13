@@ -1,6 +1,6 @@
 import type { ScopedDb } from "@/lib/db/scope";
 import { createWeeklySlotsInMonth, isMonthGenerated } from "./generate";
-import { addMonths, kstToUtc, monthOf, monthRange, weeklyText, type YearMonth } from "./kst";
+import { addMonths, kstParts, kstToUtc, monthKey, monthOf, monthRange, slotText, weeklyText, type YearMonth } from "./kst";
 
 // 선생님의 고정 수업 시간·슬롯 관리 (SCH-01, 02, 11, 12, 15). db는 세션에서 만든 teacherDb
 
@@ -40,6 +40,30 @@ async function checkWeeklyOverlap(db: Tx, input: WeeklyInput, exceptId?: string)
 
 type Tx = Parameters<Parameters<ScopedDb["$transaction"]>[0]>[0];
 
+/** 슬롯이 그날의 고정 시간과 겹치는지 (KST 기준. 슬롯은 하루 안에서 끝난다) */
+export function clashesWeekly(slot: { startsAt: Date; endsAt: Date }, w: WeeklyInput) {
+  const p = kstParts(slot.startsAt);
+  if (p.weekday !== w.weekday) return false;
+  return slot.startsAt < kstToUtc(p.year, p.month, p.day, w.endMinute) && slot.endsAt > kstToUtc(p.year, p.month, p.day, w.startMinute);
+}
+
+/**
+ * SCH-18: 고정 시간을 등록·변경할 때, from 이후 이미 있는 슬롯(1회성, 예약이 남은 옛 슬롯 등)과 겹치면 막는다.
+ * 겹치는 날을 건너뛰면 그날 고정 일정 학생의 수업이 빠지므로, 선생님이 그 슬롯을 먼저 정리하게 한다
+ */
+async function checkSlotClash(tx: Tx, input: WeeklyInput, from: Date, exceptWeeklySlotId?: string) {
+  const slots = await tx.slot.findMany({
+    where: {
+      startsAt: { gte: from },
+      ...(exceptWeeklySlotId ? { OR: [{ weeklySlotId: null }, { weeklySlotId: { not: exceptWeeklySlotId } }] } : {}),
+    },
+    orderBy: { startsAt: "asc" },
+    select: { startsAt: true, endsAt: true },
+  });
+  const clash = slots.find((s) => clashesWeekly(s, input));
+  if (clash) throw new ScheduleError(`${slotText(clash.startsAt)} 슬롯과 시간이 겹쳐요. 그 슬롯을 지우거나 시간을 다르게 정해 주세요`);
+}
+
 /** 지금부터 만들어져 있어야 하는 달들: 이번 달 + (월말 생성이 끝났으면) 다음 달 */
 async function openMonths(tx: Tx, now: Date): Promise<YearMonth[]> {
   const cur = monthOf(now);
@@ -69,7 +93,7 @@ export async function listWeeklySlots(db: ScopedDb) {
       weekday: true,
       startMinute: true,
       endMinute: true,
-      weeklyLessons: { select: { student: { select: { name: true } } } },
+      weeklyLessons: { where: { student: { deactivatedAt: null, deletedAt: null } }, select: { student: { select: { name: true } } } },
     },
   });
   return rows.map(({ weeklyLessons, ...w }) => ({ ...w, students: weeklyLessons.map((wl) => wl.student.name) }));
@@ -80,6 +104,7 @@ export async function createWeeklySlot(db: ScopedDb, input: WeeklyInput, now = n
   checkWeekly(input);
   return db.$transaction(async (tx) => {
     await checkWeeklyOverlap(tx, input);
+    await checkSlotClash(tx, input, now);
     const w = await tx.weeklySlot.create({ data: input as never });
     await generateFor(tx, w, now);
     return w;
@@ -107,12 +132,17 @@ export async function updateWeeklySlot(db: ScopedDb, id: string, input: WeeklyIn
       // 새 행으로 바꾼다. 같은 행의 시간을 고치면 지운 슬롯과 시작 시각이 겹쳐 다시 만들어지지 않을 수 있다
       await tx.weeklySlot.update({ where: { id }, data: { deletedAt: now } });
       await deleteEmptyFutureSlots(tx, id, now);
+      // 예약이 남아 지우지 못한 옛 시간 슬롯도 겹치면 막는다
+      await checkSlotClash(tx, input, now);
       const created = await tx.weeklySlot.create({ data: input as never });
       await generateFor(tx, created, now);
       return { applied: "now" };
     }
 
     const why = checkReason(reason);
+    // 새 시간은 아직 만들지 않은 달부터 쓰인다. 그 달들에 미리 만든 슬롯과 겹치면 막는다
+    const opened = await openMonths(tx, now);
+    await checkSlotClash(tx, input, monthRange(addMonths(opened[opened.length - 1], 1)).start, id);
     await tx.weeklySlot.update({ where: { id }, data: input });
     for (const wl of w.weeklyLessons) {
       await tx.scheduleChange.create({
@@ -194,6 +224,13 @@ export async function createOneOffSlot(db: ScopedDb, input: TimeRange & { year: 
   return db.$transaction(async (tx) => {
     const clash = await tx.slot.count({ where: { startsAt: { lt: endsAt }, endsAt: { gt: startsAt } } });
     if (clash) throw new ScheduleError("그 시간에 이미 슬롯이 있어요");
+    // 아직 만들지 않은 달이면, 월말에 고정 시간 슬롯이 생길 자리와도 겹치면 안 된다 (SCH-18)
+    const opened = (await openMonths(tx, now)).map(monthKey);
+    if (!opened.includes(monthKey(monthOf(startsAt)))) {
+      const weekly = await tx.weeklySlot.findMany({ where: { weekday: kstParts(startsAt).weekday }, select: { weekday: true, startMinute: true, endMinute: true } });
+      const hit = weekly.find((w) => clashesWeekly({ startsAt, endsAt }, w));
+      if (hit) throw new ScheduleError(`고정 수업 시간(${weeklyText(hit)})과 겹쳐요`);
+    }
     return tx.slot.create({ data: { startsAt, endsAt } as never });
   });
 }

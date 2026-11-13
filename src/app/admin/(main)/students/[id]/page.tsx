@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { requireTeacher } from "@/lib/auth/session";
 import { scheduleHistory, studentProfile, teacherStudentCtx } from "@/lib/admin/student-schedule";
 import { addMonths, clockText, dayLabel, monthKey, monthOf, parseMonthKey, slotText, weeklyText } from "@/lib/schedule/kst";
@@ -16,6 +17,7 @@ import { LessonRecords } from "./lesson-records";
 import { PaymentRecords } from "./payment-records";
 import { StudyRecords } from "./study-records";
 import { StudentSchedule, type HistoryRow } from "./student-schedule";
+import { DeactivateButton, OccupationField, ReactivateButton } from "./student-actions";
 
 export const metadata: Metadata = { title: "학생 카드" };
 
@@ -36,15 +38,8 @@ export default async function StudentCardPage({ params, searchParams }: { params
   if (!profile) notFound();
 
   const now = new Date();
-  const ctx = await teacherStudentCtx(db, teacherId, profile.id);
-  const [choices, upcoming, slots, history, records] = await Promise.all([
-    weeklyChoices(ctx, now),
-    upcomingLessons(ctx, now),
-    bookableSlots(ctx, now),
-    scheduleHistory(db, profile.id),
-    lessonRecords(db, profile.id, now),
-  ]);
-  const [notes, payments] = await Promise.all([notesOf(db, records.lessons.map((l) => l.id)), paymentHistory(db, profile.id, "next", now)]);
+  const [records, payments] = await Promise.all([lessonRecords(db, profile.id, now), paymentHistory(db, profile.id, "next", now)]);
+  const notes = await notesOf(db, records.lessons.map((l) => l.id));
 
   // 공부 기록: 이 학생 것만 (선생님 본인 기록은 student_id가 NULL이라 빠진다)
   const study: StudyOwner = { db, teacherId, studentId: profile.id };
@@ -56,6 +51,81 @@ export default async function StudentCardPage({ params, searchParams }: { params
   for (const e of studyRows) (studyDays.get(e.date) ?? studyDays.set(e.date, []).get(e.date)!).push(e);
   const studyHref = (ym: typeof thisMonth) => `/admin/students/${profile.id}?study=${monthKey(ym)}#study`;
 
+  const meta = [profile.email, `${profile.birthYear}년생`, profile.gender === "MALE" ? "남성" : "여성"].join(" · ");
+  const inactive = profile.deactivatedAt !== null;
+
+  const header = (
+    <div className="grid gap-1">
+      <Link href="/admin/students" className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-4" />
+        학생 목록
+      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">
+          {profile.name}
+          {inactive && (
+            <Badge variant="outline" className="ml-2 align-middle">
+              비활성
+            </Badge>
+          )}
+        </h2>
+        {inactive ? <ReactivateButton studentId={profile.id} name={profile.name} /> : <DeactivateButton studentId={profile.id} name={profile.name} />}
+      </div>
+      <p className="text-sm text-muted-foreground">{meta}</p>
+      {inactive ? (
+        profile.occupation && <p className="text-sm">직업 {profile.occupation}</p>
+      ) : (
+        <OccupationField studentId={profile.id} occupation={profile.occupation} />
+      )}
+      {inactive && (
+        <p className="mt-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+          {formatKst(profile.deactivatedAt!)}에 비활성화한 학생이에요. 로그인과 예약이 막혀 있고 기록만 볼 수 있어요.
+        </p>
+      )}
+    </div>
+  );
+
+  const recordSections = (
+    <>
+      <LessonRecords
+        studentName={profile.name}
+        lessons={records.lessons.map((l) => ({
+          id: l.id,
+          label: lessonLabel(l.startsAt, l.endsAt),
+          fixed: l.fixed,
+          attendance: l.attendance,
+          notes: notes.get(l.id) ?? { teacher: "", student: "" },
+        }))}
+        totals={records.totals}
+      />
+      <StudyRecords
+        monthLabel={`${studyMonth.year}년 ${studyMonth.month}월`}
+        prevHref={studyHref(addMonths(studyMonth, -1))}
+        nextHref={monthKey(studyMonth) < monthKey(thisMonth) ? studyHref(addMonths(studyMonth, 1)) : null}
+        summary={studyTotals}
+        days={[...studyDays].map(([date, entries]) => ({ date, label: dayLabel(toDbDate(date)), entries }))}
+      />
+      <PaymentRecords
+        studentId={profile.id}
+        studentName={profile.name}
+        readOnly={inactive}
+        months={(payments ?? []).map((m) => ({ key: m.key, label: `${m.month.year}년 ${m.month.month}월`, paidText: m.paidAt && paidDateText(m.paidAt) }))}
+      />
+    </>
+  );
+
+  if (inactive) {
+    return (
+      <div className="grid grid-cols-1 gap-6">
+        {header}
+        {recordSections}
+      </div>
+    );
+  }
+
+  const ctx = await teacherStudentCtx(db, teacherId, profile.id);
+  const [choices, upcoming, slots, history] = await Promise.all([weeklyChoices(ctx, now), upcomingLessons(ctx, now), bookableSlots(ctx, now), scheduleHistory(db, profile.id)]);
+
   const rows: HistoryRow[] = history.map((h) => ({
     id: h.id,
     at: formatKst(h.createdAt),
@@ -65,18 +135,9 @@ export default async function StudentCardPage({ params, searchParams }: { params
     reason: h.reason,
   }));
 
-  const meta = [profile.email, `${profile.birthYear}년생`, profile.gender === "MALE" ? "남성" : "여성", profile.occupation].filter(Boolean).join(" · ");
-
   return (
     <div className="grid grid-cols-1 gap-6">
-      <div className="grid gap-1">
-        <Link href="/admin/students" className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="size-4" />
-          학생 목록
-        </Link>
-        <h2 className="text-lg font-semibold">{profile.name}</h2>
-        <p className="text-sm text-muted-foreground">{meta}</p>
-      </div>
+      {header}
 
       <StudentSchedule
         studentId={profile.id}
@@ -93,29 +154,7 @@ export default async function StudentCardPage({ params, searchParams }: { params
         slots={slots.map((s) => ({ id: s.id, label: lessonLabel(s.startsAt, s.endsAt), participants: s.participants, mine: s.mine !== null }))}
         history={rows}
       >
-        <LessonRecords
-          studentName={profile.name}
-          lessons={records.lessons.map((l) => ({
-            id: l.id,
-            label: lessonLabel(l.startsAt, l.endsAt),
-            fixed: l.fixed,
-            attendance: l.attendance,
-            notes: notes.get(l.id) ?? { teacher: "", student: "" },
-          }))}
-          totals={records.totals}
-        />
-        <StudyRecords
-          monthLabel={`${studyMonth.year}년 ${studyMonth.month}월`}
-          prevHref={studyHref(addMonths(studyMonth, -1))}
-          nextHref={monthKey(studyMonth) < monthKey(thisMonth) ? studyHref(addMonths(studyMonth, 1)) : null}
-          summary={studyTotals}
-          days={[...studyDays].map(([date, entries]) => ({ date, label: dayLabel(toDbDate(date)), entries }))}
-        />
-        <PaymentRecords
-          studentId={profile.id}
-          studentName={profile.name}
-          months={(payments ?? []).map((m) => ({ key: m.key, label: `${m.month.year}년 ${m.month.month}월`, paidText: m.paidAt && paidDateText(m.paidAt) }))}
-        />
+        {recordSections}
       </StudentSchedule>
     </div>
   );

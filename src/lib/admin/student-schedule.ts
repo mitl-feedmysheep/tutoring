@@ -1,6 +1,7 @@
 import { studentDbByTeacher, type ScopedDb } from "@/lib/db/scope";
 import type { StudentCtx } from "@/lib/schedule/student";
 import { ScheduleError } from "@/lib/schedule/teacher";
+import { originalEmail } from "./students";
 
 // 선생님이 학생 일정을 대신 바꾸기 (SCH-16)와 변경 이력 (SCH-17).
 // db·teacherId는 서버 세션(requireTeacher)에서, studentId는 화면에서 오므로 내 학생인지 먼저 확인한다
@@ -15,13 +16,14 @@ export async function teacherStudentCtx(db: ScopedDb, teacherId: string, student
   return { db: studentDbByTeacher(teacherId, student.id), teacherId, studentId: student.id, byTeacher: true, reason };
 }
 
-/** 학생 카드 위쪽 프로필. 내 학생이 아니면 null */
-export function studentProfile(db: ScopedDb, studentId: string) {
+/** 학생 카드 위쪽 프로필. 비활성 학생도 기록을 보도록 돌려준다 (ADMIN-04). 내 학생이 아니면 null */
+export async function studentProfile(db: ScopedDb, studentId: string) {
   if (!ID.test(studentId)) return null;
-  return db.student.findFirst({
-    where: { id: studentId, deactivatedAt: null },
-    select: { id: true, name: true, email: true, birthYear: true, gender: true, occupation: true, createdAt: true },
+  const s = await db.student.findFirst({
+    where: { id: studentId },
+    select: { id: true, name: true, email: true, birthYear: true, gender: true, occupation: true, createdAt: true, deactivatedAt: true },
   });
+  return s && { ...s, email: originalEmail(s.email) };
 }
 
 /** SCH-17: 일정 변경 이력 (수업 1회 + 고정 일정), 최근 것부터 */

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireSystemAdmin, requireTeacher } from "@/lib/auth/session";
 import { createTeacherByAdmin } from "@/lib/auth/teachers";
 import { issueInvite, revokeInvite } from "@/lib/admin/invites";
-import { resetStudentPassword } from "@/lib/admin/students";
+import { deactivateStudent, reactivateStudent, resetStudentPassword, setOccupation } from "@/lib/admin/students";
+import { ScheduleError } from "@/lib/schedule/teacher";
 
 // 선생님 액션. teacherId는 requireTeacher(서버 세션)에서만 나오고, 클라이언트는 대상 id만 보낸다
 
@@ -33,6 +34,36 @@ export async function resetPasswordAction(studentId: string) {
   const ok = await resetStudentPassword(db, studentId);
   revalidatePath("/admin/students");
   return ok;
+}
+
+export type StudentActionResult = { ok: true; canceled?: number } | { ok: false; error: string };
+
+async function studentAction(studentId: string, fn: (db: Awaited<ReturnType<typeof requireTeacher>>["db"]) => Promise<{ canceled?: number } | void>): Promise<StudentActionResult> {
+  const { db } = await requireTeacher();
+  try {
+    const result = await fn(db);
+    revalidatePath("/admin/students", "layout");
+    revalidatePath("/admin/schedule", "layout");
+    return { ok: true, ...(result ?? {}) };
+  } catch (e) {
+    if (e instanceof ScheduleError) return { ok: false, error: e.message };
+    throw e;
+  }
+}
+
+/** AUTH-05: 학생 직업 */
+export async function setOccupationAction(studentId: string, value: string) {
+  return studentAction(studentId, (db) => setOccupation(db, studentId, value));
+}
+
+/** ADMIN-04: 비활성화. 앞으로의 수업이 취소되고 학생 로그인이 끊긴다 */
+export async function deactivateStudentAction(studentId: string) {
+  return studentAction(studentId, (db) => deactivateStudent(db, studentId));
+}
+
+/** ADMIN-04: 다시 활성화 */
+export async function reactivateStudentAction(studentId: string) {
+  return studentAction(studentId, (db) => reactivateStudent(db, studentId));
 }
 
 export type CreateTeacherState = { created?: { name: string; email: string }; error?: string; values?: Record<string, string> } | undefined;

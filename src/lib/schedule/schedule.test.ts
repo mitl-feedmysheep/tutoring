@@ -273,3 +273,59 @@ describe("선생님 간 격리", () => {
     expect(await prisma.slot.count({ where: { teacherId: b.id } })).toBe(0);
   });
 });
+
+describe("고정 시간과 다른 슬롯 겹침 막기 (SCH-18)", () => {
+  const overlapping = (slots: { startsAt: Date; endsAt: Date }[]) =>
+    slots.some((a, i) => slots.some((b, j) => i !== j && a.startsAt < b.endsAt && b.startsAt < a.endsAt));
+
+  it("1회성 슬롯과 겹치는 고정 시간은 등록할 수 없다. 지우면 등록된다", async () => {
+    const { db } = await newTeacher();
+    const one = await createOneOffSlot(db, { year: 2026, month: 12, day: 15, startMinute: 19 * 60 + 30, endMinute: 20 * 60 + 30 }, MID_DEC);
+    await expect(createWeeklySlot(db, TUE_19, MID_DEC)).rejects.toThrow("12/15");
+    expect(await listWeeklySlots(db)).toHaveLength(0);
+    // 다른 요일, 바로 이어지는 시간은 된다
+    await createWeeklySlot(db, { weekday: 2, startMinute: 20 * 60 + 30, endMinute: 21 * 60 }, MID_DEC);
+    await deleteSlot(db, one.id, MID_DEC);
+    await createWeeklySlot(db, TUE_19, MID_DEC);
+    expect(overlapping(await listMonthSlots(db, DEC))).toBe(false);
+  });
+
+  it("아직 만들지 않은 달에는 고정 시간 자리에 1회성 슬롯을 만들 수 없다. 만든 달에서는 슬롯끼리만 비교한다", async () => {
+    const { db } = await newTeacher();
+    await createWeeklySlot(db, TUE_19, MID_DEC);
+    // 1월은 아직 안 만듦: 1/12(화) 19:30은 고정 시간 자리
+    await expect(createOneOffSlot(db, { year: 2027, month: 1, day: 12, startMinute: 19 * 60 + 30, endMinute: 20 * 60 + 30 }, MID_DEC)).rejects.toThrow("고정 수업 시간");
+    await createOneOffSlot(db, { year: 2027, month: 1, day: 13, startMinute: 19 * 60 + 30, endMinute: 20 * 60 + 30 }, MID_DEC); // 수요일은 된다
+    // 12월(만든 달): 선생님이 지운 날에는 그 시간에 1회성 슬롯을 만들 수 있다
+    const dec15 = (await listMonthSlots(db, DEC)).find((s) => kstParts(s.startsAt).day === 15)!;
+    await deleteSlot(db, dec15.id, MID_DEC);
+    await createOneOffSlot(db, { year: 2026, month: 12, day: 15, startMinute: 19 * 60 + 30, endMinute: 20 * 60 + 30 }, MID_DEC);
+
+    await generateMonth(db, JAN, LAST_DEC);
+    expect(overlapping(await listMonthSlots(db, JAN))).toBe(false);
+    expect(overlapping(await listMonthSlots(db, DEC))).toBe(false);
+  });
+
+  it("고정 시간을 바꿀 때 예약이 남은 옛 슬롯이나 미리 만든 슬롯과 겹치면 막는다", async () => {
+    const { id, db } = await newTeacher();
+    const s = await newStudent(id);
+    const w = await createWeeklySlot(db, TUE_19, MID_DEC);
+    // 학생이 12/15 한 번만 예약 (고정 일정 아님) → 시간을 바꿔도 그 슬롯은 남는다
+    const dec15 = (await listMonthSlots(db, DEC)).find((x) => kstParts(x.startsAt).day === 15)!;
+    await db.lesson.create({ data: { slotId: dec15.id, studentId: s.id } as never });
+    await expect(updateWeeklySlot(db, w.id, { weekday: 2, startMinute: 19 * 60 + 30, endMinute: 20 * 60 + 30 }, undefined, MID_DEC)).rejects.toThrow("12/15");
+    expect(await updateWeeklySlot(db, w.id, { weekday: 2, startMinute: 20 * 60, endMinute: 21 * 60 }, undefined, MID_DEC)).toEqual({ applied: "now" });
+    expect(overlapping(await listMonthSlots(db, DEC))).toBe(false);
+  });
+
+  it("고정 일정 학생이 있는 고정 시간은 다음에 만들 달의 1회성 슬롯과 비교한다", async () => {
+    const { id, db } = await newTeacher();
+    const s = await newStudent(id);
+    const w = await createWeeklySlot(db, TUE_19, MID_DEC);
+    await db.weeklyLesson.create({ data: { weeklySlotId: w.id, studentId: s.id } as never });
+    await createOneOffSlot(db, { year: 2027, month: 1, day: 13, startMinute: 18 * 60, endMinute: 19 * 60 }, MID_DEC); // 1/13 수
+    await expect(updateWeeklySlot(db, w.id, { weekday: 3, startMinute: 18 * 60 + 30, endMinute: 19 * 60 + 30 }, "사정", MID_DEC)).rejects.toThrow("1/13");
+    // 12월(이미 만든 달)은 그대로라 비교하지 않는다
+    expect(await updateWeeklySlot(db, w.id, { weekday: 3, startMinute: 19 * 60, endMinute: 20 * 60 }, "사정", MID_DEC)).toMatchObject({ applied: "later" });
+  });
+});
