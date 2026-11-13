@@ -8,7 +8,7 @@ import { TabScreen } from "@/components/app/screens";
 
 export const metadata: Metadata = { title: "MY" };
 
-// MY 탭 (APP-04). 게시판·자료실·알림 설정은 각 기능을 만들 때 연결한다. 납부 내역은 학생만 (PAY-04)
+// MY 탭 (APP-04). 알림 설정은 5단계에서 연결한다. 납부 내역은 학생만 (PAY-04)
 export default async function MyTab() {
   const account = await requireUser();
   const { claims } = account;
@@ -30,8 +30,8 @@ export default async function MyTab() {
       </section>
 
       <Menu>
-        <MenuItem label="게시판" />
-        <MenuItem label="자료실" />
+        <MenuItem label="게시판" href="/board" />
+        <MenuItem label="자료실" href="/my/files" />
         {claims.role === "student" && <MenuItem label="납부 내역" href="/my/payments" />}
       </Menu>
       <Menu>

@@ -18,8 +18,8 @@ export function TabScreen({ title, action, children }: { title: React.ReactNode;
   );
 }
 
-/** fallback: 앱 안에서 쌓인 화면이 없을 때 ← 가 갈 탭 주소 */
-export function SubScreen({ title, fallback, children }: { title: string; fallback: string; children: React.ReactNode }) {
+/** fallback: 앱 안에서 쌓인 화면이 없을 때 ← 가 갈 탭 주소. action: 오른쪽 위 버튼 */
+export function SubScreen({ title, fallback, action, children }: { title: string; fallback: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="mx-auto min-h-dvh max-w-lg bg-background">
       <header className="sticky top-0 z-30 flex items-center gap-1 bg-background/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-md">
@@ -27,6 +27,7 @@ export function SubScreen({ title, fallback, children }: { title: string; fallba
           <BackButton fallback={fallback} />
           <h1 className="truncate text-base font-bold">{title}</h1>
         </div>
+        {action}
       </header>
       <main className="flex flex-col gap-4 px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+2rem)]">{children}</main>
     </div>

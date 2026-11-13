@@ -55,7 +55,8 @@ function daysInclusive(a: string, b: string) {
 
 const UPLOAD_AUD = "study-upload";
 
-function uuidv7() {
+/** 파일 id를 서버에서 미리 정한다 (DB 기본값과 같은 UUID v7) */
+export function uuidv7() {
   const b = randomBytes(16);
   const ts = BigInt(Date.now());
   for (let i = 0; i < 6; i++) b[i] = Number((ts >> BigInt(8 * (5 - i))) & BigInt(0xff));
