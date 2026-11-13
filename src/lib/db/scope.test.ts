@@ -57,6 +57,7 @@ async function createTenant() {
     prisma.pushSubscription.create({ data: { teacherId: t, studentId, endpoint: `https://push.test/${tag}-${who}`, p256dh: "k", auth: "a" } });
   const pushS1 = await push("s1", s1.id);
   const pushTeacher = await push("t", null);
+  const notificationLog = await prisma.notificationLog.create({ data: { teacherId: t, kind: "LESSON_REMINDER", targetKey: slot.id, recipient: s1.id } });
   const invite = await prisma.invite.create({
     data: { teacherId: t, tokenHash: randomUUID().replace(/-/g, "").padEnd(64, "0"), expiresAt: new Date(Date.now() + 3600_000) },
   });
@@ -64,7 +65,7 @@ async function createTenant() {
   return {
     teacher, s1, s2, weeklySlot, slot, monthlySlotHistory, weeklyLesson, lesson1, lesson2, teacherNote, studentNote, otherNote,
     scheduleChange, studyLog, ownStudyLog, photo, openMaterial, closedMaterial, fileAccess, payment, board, otherBoard,
-    teacherComment, invite, pushS1, pushTeacher,
+    teacherComment, invite, pushS1, pushTeacher, notificationLog,
     /** 모델마다 이 선생님 소유인 행 하나 */
     rowOf: {} as Record<Model, { id: string }>,
   };
@@ -77,7 +78,7 @@ function fillRows(x: Tenant) {
     Teacher: x.teacher, Student: x.s1, Invite: x.invite, WeeklySlot: x.weeklySlot, Slot: x.slot, MonthlySlotHistory: x.monthlySlotHistory, WeeklyLesson: x.weeklyLesson,
     Lesson: x.lesson1, ScheduleChange: x.scheduleChange, LessonNote: x.teacherNote, StudyLog: x.studyLog, File: x.photo,
     FileAccess: x.fileAccess, Payment: x.payment, Board: x.board, Comment: x.teacherComment,
-    PushSubscription: x.pushS1,
+    PushSubscription: x.pushS1, NotificationLog: x.notificationLog,
   };
   return x;
 }
@@ -209,6 +210,7 @@ describe("학생 범위", () => {
     expect((await db.lesson.findMany()).map((l) => l.id)).toEqual([A.lesson1.id]);
     expect((await db.board.findMany()).map((b) => b.id)).not.toContain(A.otherBoard.id);
     expect(await db.invite.findMany()).toEqual([]);
+    expect(await db.notificationLog.findMany()).toEqual([]);
   });
 
   it("수업 노트는 학생 노트만 보인다", async () => {

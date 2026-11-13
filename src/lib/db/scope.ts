@@ -27,7 +27,7 @@ export type Scope =
 /** 모델별 관계. many = 목록, one = 단건. 스키마에 관계를 추가하면 여기도 추가한다 (테스트가 확인) */
 export const RELATIONS: Record<Model, { many: Record<string, Model>; one: Record<string, Model> }> = {
   Teacher: {
-    many: { students: "Student", invites: "Invite", weeklySlots: "WeeklySlot", slots: "Slot", studyLogs: "StudyLog", files: "File", monthlySlotHistories: "MonthlySlotHistory", pushSubscriptions: "PushSubscription" },
+    many: { students: "Student", invites: "Invite", weeklySlots: "WeeklySlot", slots: "Slot", studyLogs: "StudyLog", files: "File", monthlySlotHistories: "MonthlySlotHistory", pushSubscriptions: "PushSubscription", notificationLogs: "NotificationLog" },
     one: {},
   },
   Student: {
@@ -66,6 +66,7 @@ export const RELATIONS: Record<Model, { many: Record<string, Model>; one: Record
   Board: { many: { comments: "Comment" }, one: { student: "Student" } },
   Comment: { many: {}, one: { board: "Board" } },
   PushSubscription: { many: {}, one: { teacher: "Teacher", student: "Student" } },
+  NotificationLog: { many: {}, one: { teacher: "Teacher" } },
 };
 
 /** student_id 컬럼이 있는 모델 */
@@ -107,6 +108,7 @@ export function readFilter(model: Model, scope: Scope): Where {
       return { ...base, id: sid };
     case "Invite":
     case "MonthlySlotHistory":
+    case "NotificationLog": // 발송 기록은 스케줄러·선생님 범위에서만
       return NONE;
     case "StudyLog": // student_id NULL(선생님 본인 기록)은 빠진다
     case "WeeklyLesson":

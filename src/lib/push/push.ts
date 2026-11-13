@@ -21,6 +21,11 @@ export function vapidPublicKey(): string | null {
   return process.env.WEBPUSH_VAPID_PUBLIC_KEY || null;
 }
 
+/** 보낼 수 있는지 (VAPID 키 3개가 다 있는지). 스케줄러는 못 보내면 발송 기록도 남기지 않는다 */
+export function pushConfigured(): boolean {
+  return Boolean(process.env.WEBPUSH_VAPID_PUBLIC_KEY && process.env.WEBPUSH_VAPID_PRIVATE_KEY && process.env.WEBPUSH_VAPID_SUBJECT);
+}
+
 let configured = false;
 /** 키가 없으면 보내지 않는다 (오류로 다른 기능까지 멈추지 않게). 보낼 때 처음 한 번 설정 */
 function ensureVapid(): boolean {

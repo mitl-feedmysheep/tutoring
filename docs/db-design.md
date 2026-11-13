@@ -11,6 +11,7 @@
 - 2026-11-11 6차 검수: 이력을 `schedule_change` 하나로 통합(수업 1회 + 고정 일정), 모든 테이블 소프트 삭제
 - 2026-11-11 7차 검수: 학생 비활성화·삭제 때 이메일 뒤에 표시를 붙여 같은 이메일로 새 가입 허용
 - 2026-11-12: 월 단위 생성 기록 `monthly_slot_history` 추가
+- 2026-11-13: 알림 발송 기록 `notification_log` 추가
 
 ---
 
@@ -134,7 +135,7 @@
 
 - 주의: 월말 생성(마지막 날 00:00)이 끝난 뒤 같은 날 고치면 다음 달은 이미 만들어져 있으므로 그 다음 달부터 반영된다. 화면에서 안내한다.
 
-## 4. 테이블 (16개)
+## 4. 테이블 (17개)
 
 공통 컬럼(`id`, `created_at`, `updated_at`, `deleted_at`)은 표에서 생략한다.
 
@@ -369,6 +370,21 @@ comment
 - `UNIQUE (endpoint)`: 기기 하나에 한 행. 같은 기기에서 다른 사람이 켜면 행의 주인을 옮긴다 (`src/lib/db/push.ts`, 범위 계층 밖에서 쓰는 유일한 곳).
 - 끄기·로그아웃·없어진 구독(404/410)은 삭제 표시. 다시 켜면 되살림.
 - 학생 범위는 본인 기기만, 선생님 범위는 자기 학생 기기 + 본인 기기.
+
+### notification_log (알림 발송 기록, NOTI)
+
+보낸 알림을 남긴다. 같은 알림을 두 번 보내지 않는 데 쓴다. 스케줄러는 매분 "보낼 때가 지났는데 기록이 없는 것"을 찾아 보내므로, 배포로 잠깐 멈춰도 다시 뜨면 늦게라도 보낸다.
+
+| 컬럼 | 타입 | 설명 |
+|---|---|---|
+| teacher_id | CHAR(36) | FK → teacher |
+| kind | ENUM | 알림 종류. `LESSON_REMINDER`(NOTI-01), `SCHEDULE_CHANGED`(NOTI-02), `SLOT_DELETED`(NOTI-03), `STUDY_MISSING`(NOTI-04), `BOARD`(NOTI-05), `WEEKLY_MISSING`(NOTI-06), `TEACHER_CHANGED`(NOTI-07) |
+| target_key | VARCHAR(100) | 무엇에 대한 알림인지. 예: 슬롯 id, `학생id:2026-11-13`, 댓글 id |
+| recipient | VARCHAR(36) | 받는 사람. 학생 id, 선생님이면 `TEACHER` |
+
+- `UNIQUE (teacher_id, kind, target_key, recipient)`: 보내기 전에 행을 넣고, 이미 있으면(중복 오류) 보내지 않는다. 기록이 쌓여도 이 인덱스로 바로 확인한다.
+- `recipient`는 외래키가 아니다. 선생님을 NULL로 두면 UNIQUE가 NULL끼리 중복을 막지 못해서 문자열로 둔다.
+- 오래된 기록 정리는 필요해지면 그때 만든다.
 
 ## 5. 나중 단계에서 추가할 것
 

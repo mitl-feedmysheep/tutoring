@@ -1,7 +1,8 @@
 import { kstParts } from "./kst";
 import { runMonthlyGeneration } from "./job";
+import { runScheduledNotifications } from "@/lib/notify/scheduled";
 
-// Next.js 프로세스 안에서 1분마다 도는 스케줄러 (요구사항 5장). 알림 발송은 5단계에서 여기에 붙인다
+// Next.js 프로세스 안에서 1분마다 도는 스케줄러 (요구사항 5장): 월말 슬롯 생성, 시간 알림(수업 30분 전, 밤 11시 공부 기록)
 
 const INTERVAL_MS = 60_000;
 let started = false;
@@ -16,12 +17,20 @@ async function tick() {
     const now = new Date();
     const p = kstParts(now);
     const today = `${p.year}-${p.month}-${p.day}`;
-    if (generatedOn !== today) {
-      const results = await runMonthlyGeneration(now);
-      if (results.every((r) => r.ok)) generatedOn = today;
+    try {
+      if (generatedOn !== today) {
+        const results = await runMonthlyGeneration(now);
+        if (results.every((r) => r.ok)) generatedOn = today;
+      }
+    } catch (e) {
+      console.error("[schedule] 월 생성 오류", e);
     }
-  } catch (e) {
-    console.error("[schedule] 스케줄러 오류", e);
+    // 월 생성이 실패해도 알림은 보낸다
+    try {
+      await runScheduledNotifications(now);
+    } catch (e) {
+      console.error("[notify] 알림 오류", e);
+    }
   } finally {
     running = false;
   }

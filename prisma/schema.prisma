@@ -43,6 +43,17 @@ enum ChangedBy {
   SYSTEM
 }
 
+/// 알림 종류 (요구사항 NOTI)
+enum NotificationKind {
+  LESSON_REMINDER
+  SCHEDULE_CHANGED
+  SLOT_DELETED
+  STUDY_MISSING
+  BOARD
+  WEEKLY_MISSING
+  TEACHER_CHANGED
+}
+
 enum FileKind {
   STUDY_PHOTO
   MATERIAL
@@ -70,6 +81,7 @@ model Teacher {
   files                File[]
   monthlySlotHistories MonthlySlotHistory[]
   pushSubscriptions    PushSubscription[]
+  notificationLogs     NotificationLog[]
 
   @@map("teacher")
 }
@@ -433,4 +445,23 @@ model PushSubscription {
 
   @@index([teacherId, studentId])
   @@map("push_subscription")
+}
+
+/// 알림 발송 기록. 같은 알림을 두 번 보내지 않도록 보내기 전에 행을 넣는다 (중복이면 보내지 않음)
+model NotificationLog {
+  id        String           @id @default(uuid(7)) @db.Char(36)
+  teacherId String           @map("teacher_id") @db.Char(36)
+  kind      NotificationKind
+  /// 무엇에 대한 알림인지. 예: 슬롯 id, "학생id:2026-11-13"
+  targetKey String           @map("target_key") @db.VarChar(100)
+  /// 받는 사람. 학생 id, 선생님이면 "TEACHER" (NULL이면 UNIQUE가 중복을 못 막아서 문자열)
+  recipient String           @db.VarChar(36)
+  createdAt DateTime         @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.DateTime(3)
+  deletedAt DateTime?        @map("deleted_at") @db.DateTime(3)
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([teacherId, kind, targetKey, recipient])
+  @@map("notification_log")
 }
