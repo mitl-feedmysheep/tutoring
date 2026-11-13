@@ -65,6 +65,8 @@ export const signupSchema = z
       .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "이메일 형식이 아닙니다"),
     password: z.string(),
     confirm: z.string(),
+    // AUTH-13: 개인정보 수집·이용 동의 (필수). 동의 시각은 학생 가입 시각과 같다
+    agreePrivacy: z.literal(true, { error: "개인정보 수집·이용에 동의해야 가입할 수 있어요" }),
   })
   .superRefine((v, ctx) => {
     const error = validatePassword(v.password);

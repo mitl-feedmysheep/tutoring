@@ -34,10 +34,17 @@ export async function signupAction(token: string, _: FormState, form: FormData):
     birthYear: str(form, "birthYear"),
     gender: str(form, "gender"),
     email: str(form, "email"),
+    agree: str(form, "agree"),
   };
   let account;
   try {
-    account = await signupWithInvite(token, { ...values, gender: values.gender as "MALE", password: str(form, "password"), confirm: str(form, "confirm") });
+    account = await signupWithInvite(token, {
+      ...values,
+      gender: values.gender as "MALE",
+      agreePrivacy: (values.agree === "on") as true, // 서버에서 다시 검사한다
+      password: str(form, "password"),
+      confirm: str(form, "confirm"),
+    });
   } catch (e) {
     if (e instanceof AuthError) return { error: e.message, values };
     throw e;

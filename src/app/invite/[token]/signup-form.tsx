@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FormError } from "@/components/auth/auth-card";
@@ -50,10 +51,40 @@ export function SignupForm({ token }: { token: string }) {
       <Field label="비밀번호 확인" htmlFor="confirm">
         <Input id="confirm" name="confirm" type="password" autoComplete="new-password" minLength={8} maxLength={72} required />
       </Field>
+      <PrivacyConsent defaultChecked={v?.agree === "on"} />
       <FormError message={state?.error} />
       <Button type="submit" disabled={pending} className="w-full">
         {pending ? "가입하는 중..." : "가입하기"}
       </Button>
     </form>
+  );
+}
+
+/** AUTH-13: 개인정보보호법 제15조 고지 항목(목적, 항목, 보유 기간, 거부 권리)과 필수 동의 */
+function PrivacyConsent({ defaultChecked }: { defaultChecked: boolean }) {
+  return (
+    <div className="grid gap-2">
+      <div className="rounded-md border bg-muted/40 px-3 py-2.5 text-xs leading-relaxed break-keep text-muted-foreground">
+        <p className="mb-1 font-medium text-foreground">개인정보 수집·이용 안내</p>
+        <dl className="grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-1">
+          <dt>수집 항목</dt>
+          <dd>이름, 출생연도, 성별, 이메일, 비밀번호(암호화 저장)</dd>
+          <dt>이용 목적</dt>
+          <dd>수업 일정 관리, 화상 수업, 학습 기록과 피드백, 과외비 확인, 알림</dd>
+          <dt>보관 기간</dt>
+          <dd>수업을 받는 동안. 삭제를 요청하면 바로 지워요</dd>
+        </dl>
+        <p className="mt-1.5">
+          동의하지 않을 수 있지만, 동의해야 가입할 수 있어요.{" "}
+          <Link href="/privacy" target="_blank" className="font-medium text-foreground underline underline-offset-2">
+            개인정보처리방침
+          </Link>
+        </p>
+      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="agree" required defaultChecked={defaultChecked} className="size-4 accent-primary" />
+        개인정보 수집·이용에 동의해요 <span className="text-muted-foreground">(필수)</span>
+      </label>
+    </div>
   );
 }

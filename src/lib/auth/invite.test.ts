@@ -14,7 +14,7 @@ async function newTeacher() {
 }
 
 function form(email: string): SignupInput {
-  return { name: "학생", birthYear: "1990", gender: "FEMALE", email, password: "pass-1234", confirm: "pass-1234" };
+  return { name: "학생", birthYear: "1990", gender: "FEMALE", email, password: "pass-1234", confirm: "pass-1234", agreePrivacy: true };
 }
 
 describe("초대 링크 가입", () => {
@@ -70,6 +70,7 @@ describe("초대 링크 가입", () => {
     await expect(signupWithInvite(token, { ...form(`ok-${tag}@test.local`), confirm: "different" })).rejects.toThrow("서로 다릅니다");
     await expect(signupWithInvite(token, { ...form(`ok-${tag}@test.local`), birthYear: "3000" })).rejects.toThrow("출생연도");
     await expect(signupWithInvite(token, { ...form(`ok-${tag}@test.local`), gender: "X" as "MALE" })).rejects.toThrow("성별");
+    await expect(signupWithInvite(token, { ...form(`ok-${tag}@test.local`), agreePrivacy: false as true })).rejects.toThrow("동의해야");
     expect(await checkInvite(token)).toMatchObject({ state: "ok" });
   });
 
