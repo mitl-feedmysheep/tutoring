@@ -1,5 +1,5 @@
 import { addMonths, formatMinute, kstParts, monthOf, WEEKDAYS, weeklyText, type YearMonth } from "./kst";
-import { CHANGE_DEADLINE_MS, isUniqueError, moveInTx, type StudentCtx, type Tx } from "./student";
+import { deadlineMsOf, isUniqueError, moveInTx, policyOf, type StudentCtx, type Tx } from "./student";
 import { ScheduleError } from "./teacher";
 
 // 학생 고정 일정 고르기·바꾸기 (SCH-04, SCH-14, SCH-15). ctx는 서버 세션(requireStudent)에서 나온다
@@ -19,7 +19,8 @@ export function shortWeeklyText(w: { weekday: number; startMinute: number }) {
 
 const byTime = (a: WeeklyTime, b: WeeklyTime) => a.weekday - b.weekday || a.startMinute - b.startMinute;
 
-const deadlineOf = (now: Date) => new Date(now.getTime() + CHANGE_DEADLINE_MS);
+/** 이 시각 이후에 시작하는 수업만 바꾼다. 학생은 1시간 뒤, 선생님은 지금 (SCH-16) */
+const deadlineOf = (ctx: Pick<StudentCtx, "byTeacher">, now: Date) => new Date(now.getTime() + deadlineMsOf(ctx));
 
 // ─── 보기 ──────────────────────────────────────────────────────
 
@@ -100,9 +101,9 @@ function changeableLessons(weeklyLessonId: string, deadline: Date) {
   return { weeklyLessonId, canceledAt: null, slot: { startsAt: { gte: deadline }, deletedAt: null } };
 }
 
-async function computePlan(tx: Tx, rawIds: unknown, now: Date): Promise<WeeklyPlan> {
+async function computePlan(tx: Tx, ctx: StudentCtx, rawIds: unknown, now: Date): Promise<WeeklyPlan> {
   const ids = checkIds(rawIds);
-  const deadline = deadlineOf(now);
+  const deadline = deadlineOf(ctx, now);
 
   const current = await tx.weeklyLesson.findMany({
     select: { id: true, weeklySlot: { select: { id: true, weekday: true, startMinute: true, endMinute: true } } },
@@ -170,7 +171,7 @@ async function oncePair(tx: Tx, change: WeeklyPlan["changes"][number], deadline:
 
 /** 확인창에 보여 줄 내용 */
 export function planWeeklyChange(ctx: StudentCtx, ids: unknown, now = new Date()) {
-  return ctx.db.$transaction((tx) => computePlan(tx, ids, now));
+  return ctx.db.$transaction((tx) => computePlan(tx, ctx, ids, now));
 }
 
 // ─── 바꾸기 ──────────────────────────────────────────────────────
@@ -196,34 +197,35 @@ export type WeeklyMode = "once" | "all";
  */
 export async function applyWeeklyChange(ctx: StudentCtx, ids: unknown, mode: WeeklyMode, now = new Date()) {
   if (mode !== "once" && mode !== "all") throw new ScheduleError("잘못된 요청이에요");
+  const p = policyOf(ctx);
   try {
     return await ctx.db.$transaction(async (tx) => {
-      // 같은 학생이 동시에 두 번 바꾸지 않게 내 학생 행을 잠근다
+      // 같은 학생 일정을 동시에 두 번 바꾸지 않게 학생 행을 잠근다 (학생·선생님이 동시에 바꿔도)
       await tx.student.update({ where: { id: ctx.studentId }, data: { updatedAt: now } });
-      const plan = await computePlan(tx, ids, now);
+      const plan = await computePlan(tx, ctx, ids, now);
 
       if (mode === "once") {
         if (!plan.once) throw new ScheduleError("이번만 옮길 수 있는 수업이 없어요");
-        await moveInTx(tx, plan.once.lessonId, plan.once.slotId, now);
+        await moveInTx(tx, plan.once.lessonId, plan.once.slotId, now, p);
         return plan;
       }
 
-      const deadline = deadlineOf(now);
+      const deadline = deadlineOf(ctx, now);
       for (const c of plan.changes) {
         await detachLessons(tx, c.weeklyLessonId, deadline, now);
         await tx.weeklyLesson.update({ where: { id: c.weeklyLessonId }, data: { weeklySlotId: c.to.weeklySlotId } });
         await attachLessons(tx, c.weeklyLessonId, c.to.weeklySlotId, deadline);
-        await tx.scheduleChange.create({ data: { weeklyLessonId: c.weeklyLessonId, action: "CHANGE", beforeText: weeklyText(c.from), afterText: weeklyText(c.to) } as never });
+        await tx.scheduleChange.create({ data: { weeklyLessonId: c.weeklyLessonId, action: "CHANGE", beforeText: weeklyText(c.from), afterText: weeklyText(c.to), reason: p.reason } as never });
       }
       for (const r of plan.removes) {
         await detachLessons(tx, r.weeklyLessonId, deadline, now);
         await tx.weeklyLesson.update({ where: { id: r.weeklyLessonId }, data: { deletedAt: now } });
-        await tx.scheduleChange.create({ data: { weeklyLessonId: r.weeklyLessonId, action: "REMOVE", beforeText: weeklyText(r.from) } as never });
+        await tx.scheduleChange.create({ data: { weeklyLessonId: r.weeklyLessonId, action: "REMOVE", beforeText: weeklyText(r.from), reason: p.reason } as never });
       }
       for (const a of plan.adds) {
         const wl = await tx.weeklyLesson.create({ data: { weeklySlotId: a.to.weeklySlotId } as never, select: { id: true } });
         await attachLessons(tx, wl.id, a.to.weeklySlotId, deadline);
-        await tx.scheduleChange.create({ data: { weeklyLessonId: wl.id, action: "ADD", afterText: weeklyText(a.to) } as never });
+        await tx.scheduleChange.create({ data: { weeklyLessonId: wl.id, action: "ADD", afterText: weeklyText(a.to), reason: p.reason } as never });
       }
       return plan;
     });

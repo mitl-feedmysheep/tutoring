@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireTeacher } from "@/lib/auth/session";
@@ -33,7 +34,9 @@ export default async function StudentsPage() {
               {students.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">
-                    {s.name}
+                    <Link href={`/admin/students/${s.id}`} className="text-emerald-700 hover:underline">
+                      {s.name}
+                    </Link>
                     {s.mustChangePassword && (
                       <Badge variant="outline" className="ml-2">
                         비밀번호 초기화됨

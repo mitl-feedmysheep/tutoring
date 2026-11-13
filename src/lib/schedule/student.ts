@@ -3,9 +3,18 @@ import { teacherDb, type ScopedDb } from "@/lib/db/scope";
 import { monthRange, slotText, type YearMonth } from "./kst";
 import { ScheduleError } from "./teacher";
 
-// 학생의 수업 보기·예약·취소·옮기기 (SCH-03, 05, 08, 13). 세 값 모두 서버 세션(requireStudent)에서 나온다
+// 학생의 수업 보기·예약·취소·옮기기 (SCH-03, 05, 08, 13). 세 값 모두 서버 세션(requireStudent)에서 나온다.
+// 선생님이 학생 일정을 대신 바꿀 때(SCH-16)도 같은 코드를 쓴다: byTeacher면 1시간 규칙 없이 시작 전까지, 사유 필수
 
-export type StudentCtx = { db: ScopedDb; teacherId: string; studentId: string };
+export type StudentCtx = {
+  db: ScopedDb;
+  teacherId: string;
+  studentId: string;
+  /** 선생님이 대신 바꾼다 (db는 studentDbByTeacher) */
+  byTeacher?: boolean;
+  /** 선생님이 바꿀 때 사유 (이력에 남는다) */
+  reason?: string;
+};
 
 export type Tx = Parameters<Parameters<ScopedDb["$transaction"]>[0]>[0];
 
@@ -19,6 +28,34 @@ export function changeDeadline(startsAt: Date) {
 export function canChange(startsAt: Date, now: Date) {
   return now.getTime() <= changeDeadline(startsAt).getTime();
 }
+
+/** 바꾸기 규칙. 학생은 1시간 전까지, 선생님은 수업 시작 전까지 (지난 수업은 못 바꾼다) */
+export type Policy = { byTeacher: boolean; deadlineMs: number; reason: string | null };
+
+/** 수업 시작보다 이만큼 앞까지 바꿀 수 있다. 선생님은 1ms = 시작 전까지 */
+export function deadlineMsOf(ctx: Pick<StudentCtx, "byTeacher">) {
+  return ctx.byTeacher ? 1 : CHANGE_DEADLINE_MS;
+}
+
+/** 바꾸기 전에 부른다. 선생님이면 사유를 확인한다 */
+export function policyOf(ctx: StudentCtx): Policy {
+  if (!ctx.byTeacher) return { byTeacher: false, deadlineMs: deadlineMsOf(ctx), reason: null };
+  const reason = ctx.reason?.trim();
+  if (!reason) throw new ScheduleError("바꾸는 이유를 적어 주세요");
+  if (reason.length > 200) throw new ScheduleError("이유는 200자 이하로 써 주세요");
+  return { byTeacher: true, deadlineMs: deadlineMsOf(ctx), reason };
+}
+
+function allowed(startsAt: Date, now: Date, p: Policy) {
+  return now.getTime() <= startsAt.getTime() - p.deadlineMs;
+}
+
+const lateMessage = (p: Policy, booking: boolean) =>
+  p.byTeacher
+    ? "이미 시작했거나 지난 수업이라 바꿀 수 없어요"
+    : booking
+      ? "수업 시작 1시간 전까지만 예약할 수 있어요"
+      : "수업 시작 1시간 전이 지나서 바꿀 수 없어요";
 
 /**
  * 슬롯별 참여 예정 학생 수 (SCH-02).
@@ -112,8 +149,8 @@ export async function lessonDetail(ctx: StudentCtx, id: string, now = new Date()
     canceled: row.canceledAt !== null,
     participants: counts.get(lesson.slotId) ?? 0,
     past: lesson.endsAt <= now,
-    canChange: row.canceledAt === null && canChange(lesson.startsAt, now),
-    deadline: changeDeadline(lesson.startsAt),
+    canChange: row.canceledAt === null && now.getTime() <= lesson.startsAt.getTime() - deadlineMsOf(ctx),
+    deadline: new Date(lesson.startsAt.getTime() - deadlineMsOf(ctx)),
   };
 }
 
@@ -139,7 +176,7 @@ export type BookableSlot = {
 /** SCH-13: 지금 예약할 수 있는 슬롯 (만들어진 앞으로의 슬롯 중 1시간 전 마감이 안 지난 것) */
 export async function bookableSlots(ctx: StudentCtx, now = new Date()): Promise<BookableSlot[]> {
   const slots = await ctx.db.slot.findMany({
-    where: { startsAt: { gte: new Date(now.getTime() + CHANGE_DEADLINE_MS) } },
+    where: { startsAt: { gte: new Date(now.getTime() + deadlineMsOf(ctx)) } },
     orderBy: { startsAt: "asc" },
     select: { id: true, startsAt: true, endsAt: true },
   });
@@ -157,10 +194,10 @@ export async function bookableSlots(ctx: StudentCtx, now = new Date()): Promise<
 export const isUniqueError = (e: unknown) => e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
 
 /** 그 슬롯에 내 수업을 잡는다. 전에 취소한 수업이 있으면 되살린다 (slot·student는 UNIQUE) */
-async function bookInTx(tx: Tx, slotId: string, now: Date) {
+async function bookInTx(tx: Tx, slotId: string, now: Date, p: Policy) {
   const slot = await tx.slot.findUnique({ where: { id: slotId }, select: { id: true, startsAt: true } });
   if (!slot) throw new ScheduleError("없어진 수업 시간이에요. 목록을 새로 고쳐 주세요");
-  if (!canChange(slot.startsAt, now)) throw new ScheduleError("수업 시작 1시간 전까지만 예약할 수 있어요");
+  if (!allowed(slot.startsAt, now, p)) throw new ScheduleError(lateMessage(p, true));
 
   const existing = await tx.lesson.findFirst({ where: { slotId }, select: { id: true, canceledAt: true } });
   if (existing && existing.canceledAt === null) throw new ScheduleError("이미 예약한 수업이에요");
@@ -179,10 +216,11 @@ async function bookInTx(tx: Tx, slotId: string, now: Date) {
 
 /** SCH-03: 예약 */
 export async function bookSlot(ctx: StudentCtx, slotId: string, now = new Date()) {
+  const p = policyOf(ctx);
   try {
     return await ctx.db.$transaction(async (tx) => {
-      const { lessonId, startsAt } = await bookInTx(tx, slotId, now);
-      await tx.scheduleChange.create({ data: { lessonId, action: "ADD", afterText: slotText(startsAt) } as never });
+      const { lessonId, startsAt } = await bookInTx(tx, slotId, now, p);
+      await tx.scheduleChange.create({ data: { lessonId, action: "ADD", afterText: slotText(startsAt), reason: p.reason } as never });
       return { lessonId };
     });
   } catch (e) {
@@ -192,14 +230,14 @@ export async function bookSlot(ctx: StudentCtx, slotId: string, now = new Date()
 }
 
 /** 취소할 수 있는 내 수업을 취소 표시한다 */
-async function cancelInTx(tx: Tx, lessonId: string, now: Date) {
+async function cancelInTx(tx: Tx, lessonId: string, now: Date, p: Policy) {
   const lesson = await tx.lesson.findFirst({
     where: { id: lessonId, slot: { deletedAt: null } },
     select: { id: true, canceledAt: true, slot: { select: { id: true, startsAt: true } } },
   });
   if (!lesson) throw new ScheduleError("없는 수업이에요");
   if (lesson.canceledAt) throw new ScheduleError("이미 취소한 수업이에요");
-  if (!canChange(lesson.slot.startsAt, now)) throw new ScheduleError("수업 시작 1시간 전이 지나서 바꿀 수 없어요");
+  if (!allowed(lesson.slot.startsAt, now, p)) throw new ScheduleError(lateMessage(p, false));
   const { count } = await tx.lesson.updateMany({ where: { id: lessonId, canceledAt: null }, data: { canceledAt: now } });
   if (count === 0) throw new ScheduleError("이미 취소한 수업이에요");
   return lesson.slot;
@@ -207,9 +245,10 @@ async function cancelInTx(tx: Tx, lessonId: string, now: Date) {
 
 /** SCH-05: 이번 회차만 취소. 선생님 알림(NOTI-02)은 5단계 */
 export async function cancelLesson(ctx: StudentCtx, lessonId: string, now = new Date()) {
+  const p = policyOf(ctx);
   return ctx.db.$transaction(async (tx) => {
-    const slot = await cancelInTx(tx, lessonId, now);
-    await tx.scheduleChange.create({ data: { lessonId, action: "CANCEL", beforeText: slotText(slot.startsAt) } as never });
+    const slot = await cancelInTx(tx, lessonId, now, p);
+    await tx.scheduleChange.create({ data: { lessonId, action: "CANCEL", beforeText: slotText(slot.startsAt), reason: p.reason } as never });
     return { startsAt: slot.startsAt };
   });
 }
@@ -219,8 +258,9 @@ export async function cancelLesson(ctx: StudentCtx, lessonId: string, now = new 
  * 지금 수업은 취소되고 옮길 슬롯에 새 수업(예약)이 생긴다. 이력은 지금 수업에 남긴다
  */
 export async function moveLesson(ctx: StudentCtx, lessonId: string, slotId: string, now = new Date()) {
+  const p = policyOf(ctx);
   try {
-    return await ctx.db.$transaction((tx) => moveInTx(tx, lessonId, slotId, now));
+    return await ctx.db.$transaction((tx) => moveInTx(tx, lessonId, slotId, now, p));
   } catch (e) {
     if (isUniqueError(e)) throw new ScheduleError("이미 예약한 수업이에요");
     throw e;
@@ -228,12 +268,12 @@ export async function moveLesson(ctx: StudentCtx, lessonId: string, slotId: stri
 }
 
 /** 옮기기 본체. 고정 일정 "이번만"(weekly.ts)도 같이 쓴다 */
-export async function moveInTx(tx: Tx, lessonId: string, slotId: string, now: Date) {
-  const from = await cancelInTx(tx, lessonId, now);
+export async function moveInTx(tx: Tx, lessonId: string, slotId: string, now: Date, p: Policy) {
+  const from = await cancelInTx(tx, lessonId, now, p);
   if (from.id === slotId) throw new ScheduleError("지금 수업과 같은 시간이에요");
-  const to = await bookInTx(tx, slotId, now);
+  const to = await bookInTx(tx, slotId, now, p);
   await tx.scheduleChange.create({
-    data: { lessonId, action: "MOVE", beforeText: slotText(from.startsAt), afterText: slotText(to.startsAt) } as never,
+    data: { lessonId, action: "MOVE", beforeText: slotText(from.startsAt), afterText: slotText(to.startsAt), reason: p.reason } as never,
   });
   return { lessonId: to.lessonId };
 }

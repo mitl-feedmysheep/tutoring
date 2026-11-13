@@ -21,7 +21,7 @@ type Where = Record<string, any>;
 
 export type Scope =
   | { kind: "teacher"; teacherId: string }
-  | { kind: "student"; teacherId: string; studentId: string };
+  | { kind: "student"; teacherId: string; studentId: string; byTeacher?: boolean };
 
 /** 모델별 관계. many = 목록, one = 단건. 스키마에 관계를 추가하면 여기도 추가한다 (테스트가 확인) */
 export const RELATIONS: Record<Model, { many: Record<string, Model>; one: Record<string, Model> }> = {
@@ -70,6 +70,14 @@ const HAS_STUDENT_ID = new Set<Model>(["Invite", "WeeklyLesson", "Lesson", "Sche
 
 /** 학생이 쓰기(만들기·수정)할 수 있는 모델. 나머지는 학생 범위에서 쓰기 금지 */
 const STUDENT_WRITABLE = new Set<Model>(["Student", "WeeklyLesson", "Lesson", "ScheduleChange", "LessonNote", "StudyLog", "File", "Board", "Comment"]);
+
+/** 선생님이 학생 일정을 대신 바꿀 때(byTeacher) 쓰기할 수 있는 모델. 노트·글처럼 작성자가 학생으로 남는 것은 막는다 */
+const TEACHER_FOR_STUDENT_WRITABLE = new Set<Model>(["Student", "WeeklyLesson", "Lesson", "ScheduleChange"]);
+
+function canStudentWrite(model: Model, scope: Scope) {
+  if (scope.kind !== "student") return true;
+  return (scope.byTeacher ? TEACHER_FOR_STUDENT_WRITABLE : STUDENT_WRITABLE).has(model);
+}
 
 const NONE: Where = { id: { in: [] } };
 
@@ -120,7 +128,7 @@ export function readFilter(model: Model, scope: Scope): Where {
 /** 이 범위에서 수정할 수 있는 행 */
 function writeFilter(model: Model, scope: Scope): Where {
   if (scope.kind === "teacher") return readFilter(model, scope);
-  if (!STUDENT_WRITABLE.has(model)) throw new ScopeError(`학생은 ${model}을(를) 수정할 수 없습니다`);
+  if (!canStudentWrite(model, scope)) throw new ScopeError(`학생은 ${model}을(를) 수정할 수 없습니다`);
   const base: Where = { teacherId: scope.teacherId, deletedAt: null };
   const sid = scope.studentId;
   switch (model) {
@@ -145,10 +153,10 @@ function forcedFields(model: Model, scope: Scope): Where {
   const fields: Where = { teacherId: scope.teacherId };
   if (scope.kind === "teacher") return fields;
 
-  if (model === "Student" || !STUDENT_WRITABLE.has(model)) throw new ScopeError(`학생은 ${model}을(를) 만들 수 없습니다`);
+  if (model === "Student" || !canStudentWrite(model, scope)) throw new ScopeError(`학생은 ${model}을(를) 만들 수 없습니다`);
   if (HAS_STUDENT_ID.has(model)) fields.studentId = scope.studentId;
   if (model === "LessonNote" || model === "Board" || model === "Comment") fields.author = "STUDENT";
-  if (model === "ScheduleChange") fields.changedBy = "STUDENT";
+  if (model === "ScheduleChange") fields.changedBy = scope.byTeacher ? "TEACHER" : "STUDENT";
   if (model === "File") Object.assign(fields, { uploaderStudentId: scope.studentId, kind: "STUDY_PHOTO" });
   return fields;
 }
@@ -346,6 +354,16 @@ export function studentDb(teacherId: string, studentId: string) {
   requireId(teacherId, "teacherId");
   requireId(studentId, "studentId");
   return scoped({ kind: "student", teacherId, studentId });
+}
+
+/**
+ * 선생님이 학생 일정을 대신 바꿀 때 (SCH-16). 학생 범위와 같이 그 학생 것만 보고 바꾸며, 이력은 TEACHER로 남는다.
+ * teacherId는 서버 세션, studentId는 그 선생님의 학생인지 먼저 확인한 값이어야 한다
+ */
+export function studentDbByTeacher(teacherId: string, studentId: string) {
+  requireId(teacherId, "teacherId");
+  requireId(studentId, "studentId");
+  return scoped({ kind: "student", teacherId, studentId, byTeacher: true });
 }
 
 export type ScopedDb = ReturnType<typeof teacherDb>;
