@@ -141,6 +141,6 @@ describe("학생별 수업 이력 (LESSON-02)", () => {
     const lesson = await lessonAt(t.id, s.id, at(9, 19 * 60));
     await setAttendance(db, lesson.id, "ABSENT", NOW);
     const [slot] = await listMonthSlots(db, { year: 2026, month: 12 });
-    expect(slot.students).toEqual([{ lessonId: lesson.id, name: "S", fixed: false, attendance: "ABSENT" }]);
+    expect(slot.students).toEqual([{ lessonId: lesson.id, studentId: s.id, name: "S", fixed: false, attendance: "ABSENT" }]);
   });
 });

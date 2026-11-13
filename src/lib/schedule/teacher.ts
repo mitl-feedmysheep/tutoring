@@ -175,13 +175,13 @@ export async function listMonthSlots(db: ScopedDb, ym: YearMonth) {
       lessons: {
         where: { canceledAt: null },
         orderBy: { createdAt: "asc" },
-        select: { id: true, weeklyLessonId: true, attendance: true, student: { select: { name: true } } },
+        select: { id: true, studentId: true, weeklyLessonId: true, attendance: true, student: { select: { name: true } } },
       },
     },
   });
   return rows.map(({ lessons, ...s }) => ({
     ...s,
-    students: lessons.map((l) => ({ lessonId: l.id, name: l.student.name, fixed: l.weeklyLessonId !== null, attendance: l.attendance })),
+    students: lessons.map((l) => ({ lessonId: l.id, studentId: l.studentId, name: l.student.name, fixed: l.weeklyLessonId !== null, attendance: l.attendance })),
   }));
 }
 

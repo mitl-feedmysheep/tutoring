@@ -23,7 +23,7 @@ export type CalendarSlot = {
   /** 고정 수업 시간에서 만들어진 슬롯 */
   weekly: boolean;
   past: boolean;
-  students: { lessonId: string; name: string; fixed: boolean; attendance: "COMPLETED" | "ABSENT" | null }[];
+  students: { lessonId: string; studentId: string; name: string; fixed: boolean; attendance: "COMPLETED" | "ABSENT" | null }[];
 };
 
 /** 시작한 수업 중 완료·결석을 아직 체크하지 않은 학생 수 (LESSON-01) */
@@ -388,7 +388,10 @@ function SlotDetail({ slot, onSelect }: { slot: CalendarSlot; onSelect: (s: Sele
             {slot.students.map((s) => (
               <li key={s.lessonId} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm">
                 <span className="grid min-w-0">
-                  <span className="truncate">{s.name}</span>
+                  {/* 학생 카드에서 노트를 쓴다 (NOTE-01) */}
+                  <Link href={`/admin/students/${s.studentId}`} className="truncate font-medium hover:underline">
+                    {s.name}
+                  </Link>
                   {s.fixed && <span className="text-xs text-muted-foreground">고정 일정</span>}
                 </span>
                 {slot.past && <AttendanceToggle lessonId={s.lessonId} value={s.attendance} name={s.name} />}

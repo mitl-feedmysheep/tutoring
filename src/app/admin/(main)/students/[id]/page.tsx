@@ -9,6 +9,7 @@ import { bookableSlots, upcomingLessons } from "@/lib/schedule/student";
 import { shortWeeklyText, weeklyChoices } from "@/lib/schedule/weekly";
 import { formatKst } from "@/lib/time";
 import { lessonRecords } from "@/lib/lessons/attendance";
+import { notesOf } from "@/lib/lessons/notes";
 import { LessonRecords } from "./lesson-records";
 import { StudentSchedule, type HistoryRow } from "./student-schedule";
 
@@ -23,7 +24,7 @@ const BY_LABEL = { STUDENT: "학생", TEACHER: "선생님", SYSTEM: "자동" } a
 
 const lessonLabel = (startsAt: Date, endsAt: Date) => `${slotText(startsAt)}–${clockText(endsAt)}`;
 
-// 학생 카드 (ADMIN-01). 일정: 고정 일정·앞으로의 수업 바꾸기 (SCH-16), 일정 변경 이력 (SCH-17). 수업 이력과 완료·결석 체크 (LESSON-01, 02)
+// 학생 카드 (ADMIN-01). 일정: 고정 일정·앞으로의 수업 바꾸기 (SCH-16), 일정 변경 이력 (SCH-17). 수업 이력과 완료·결석 체크 (LESSON-01, 02), 수업 노트 (NOTE-01~03)
 export default async function StudentCardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { db, teacherId } = await requireTeacher();
@@ -39,6 +40,7 @@ export default async function StudentCardPage({ params }: { params: Promise<{ id
     scheduleHistory(db, profile.id),
     lessonRecords(db, profile.id, now),
   ]);
+  const notes = await notesOf(db, records.lessons.map((l) => l.id));
 
   const rows: HistoryRow[] = history.map((h) => ({
     id: h.id,
@@ -78,7 +80,14 @@ export default async function StudentCardPage({ params }: { params: Promise<{ id
         history={rows}
       >
         <LessonRecords
-          lessons={records.lessons.map((l) => ({ id: l.id, label: lessonLabel(l.startsAt, l.endsAt), fixed: l.fixed, attendance: l.attendance }))}
+          studentName={profile.name}
+          lessons={records.lessons.map((l) => ({
+            id: l.id,
+            label: lessonLabel(l.startsAt, l.endsAt),
+            fixed: l.fixed,
+            attendance: l.attendance,
+            notes: notes.get(l.id) ?? { teacher: "", student: "" },
+          }))}
           totals={records.totals}
         />
       </StudentSchedule>

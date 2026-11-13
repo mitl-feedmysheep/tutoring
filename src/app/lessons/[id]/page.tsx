@@ -4,17 +4,19 @@ import { notFound } from "next/navigation";
 import { requireStudent } from "@/lib/auth/session";
 import { timeRangeText } from "@/lib/app/lesson-format";
 import { ampmText, dayLabel } from "@/lib/schedule/kst";
+import { myNote } from "@/lib/lessons/notes";
 import { lessonDetail } from "@/lib/schedule/student";
 import { SubScreen } from "@/components/app/screens";
 import { Card, Chip, Notice, Rule } from "@/components/app/ui";
 import { AttendanceChip } from "@/components/app/lessons/attendance-chip";
 import { LessonButtons } from "@/components/app/lessons/lesson-actions";
+import { NoteEditor } from "@/components/app/lessons/note-editor";
 
 export const metadata: Metadata = { title: "수업" };
 
 const ID = /^[0-9a-f-]{36}$/;
 
-// 수업 화면. 예정 수업은 옮기기·취소, 지난 수업은 출석 (노트는 다음 작업). APP-13: 마감이 지나면 버튼 대신 안내
+// 수업 화면. 예정 수업은 옮기기·취소 (APP-13: 마감이 지나면 버튼 대신 안내). 시작한 수업은 내 노트 (NOTE-02, 05), 지난 수업은 출석도
 export default async function LessonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!ID.test(id)) notFound();
@@ -23,7 +25,9 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
   if (!lesson) notFound();
 
   const label = `${dayLabel(lesson.startsAt)} ${ampmText(lesson.startsAt)}`;
-  const title = lesson.canceled ? "취소한 수업" : lesson.past ? "지난 수업" : "예정 수업";
+  const started = lesson.startsAt <= new Date();
+  const title = lesson.canceled ? "취소한 수업" : lesson.past ? "지난 수업" : started ? "진행 중인 수업" : "예정 수업";
+  const note = started && !lesson.canceled ? await myNote(ctx, lesson.id) : null;
 
   return (
     <SubScreen title={title} fallback="/">
@@ -42,8 +46,8 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
             내 수업 보기
           </Link>
         </>
-      ) : lesson.past ? (
-        <Rule>수업 노트는 곧 여기서 쓸 수 있어요.</Rule>
+      ) : note !== null ? (
+        <NoteEditor lessonId={lesson.id} initial={note} />
       ) : lesson.canChange ? (
         <>
           <Rule>

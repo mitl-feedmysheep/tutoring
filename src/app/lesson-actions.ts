@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStudent } from "@/lib/auth/session";
+import { saveStudentNote } from "@/lib/lessons/notes";
 import { bookSlot, cancelLesson, moveLesson } from "@/lib/schedule/student";
 import { ScheduleError } from "@/lib/schedule/teacher";
 import { applyWeeklyChange, planWeeklyChange, type WeeklyMode } from "@/lib/schedule/weekly";
@@ -66,6 +67,15 @@ export async function applyWeeklyChangeAction(weeklySlotIds: string[], mode: Wee
   return run(async () => {
     await applyWeeklyChange(ctx, weeklySlotIds, mode);
     // TODO(5단계): 선생님에게 알림 (NOTI-02)
+    return {};
+  });
+}
+
+/** NOTE-02, APP-10: 내 노트 저장 */
+export async function saveMyNoteAction(lessonId: string, content: string) {
+  const ctx = await requireStudent();
+  return run(async () => {
+    await saveStudentNote(ctx, lessonId, content);
     return {};
   });
 }
