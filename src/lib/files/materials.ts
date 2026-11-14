@@ -90,14 +90,14 @@ export async function saveMaterial(db: ScopedDb, teacherId: string, input: { tok
 
 const ACTIVE_STUDENT = { student: { deactivatedAt: null, deletedAt: null } };
 
-export type MaterialRow = { id: string; fileName: string; sizeBytes: number; description: string | null; createdAt: Date; shared: number };
+export type MaterialRow = { id: string; fileName: string; contentType: string; sizeBytes: number; description: string | null; createdAt: Date; shared: number };
 
 /** 자료 목록 (최근 올린 것부터). shared: 공개한 활성 학생 수 */
 export async function listMaterials(db: ScopedDb): Promise<MaterialRow[]> {
   const rows = await db.file.findMany({
     where: { kind: "MATERIAL" },
     orderBy: { createdAt: "desc" },
-    select: { id: true, fileName: true, sizeBytes: true, description: true, createdAt: true, _count: { select: { accesses: { where: ACTIVE_STUDENT } } } },
+    select: { id: true, fileName: true, contentType: true, sizeBytes: true, description: true, createdAt: true, _count: { select: { accesses: { where: ACTIVE_STUDENT } } } },
   });
   return rows.map(({ _count, ...r }) => ({ ...r, shared: _count.accesses }));
 }
@@ -173,14 +173,14 @@ export async function deleteMaterial(db: ScopedDb, fileId: unknown, now = new Da
 
 // ── 학생
 
-export type MyMaterial = { id: string; fileName: string; sizeBytes: number; description: string | null; sharedAt: Date };
+export type MyMaterial = { id: string; fileName: string; contentType: string; sizeBytes: number; description: string | null; sharedAt: Date };
 
 /** 학생 자료실: 나에게 공개된 자료 (최근 공개한 것부터). db는 studentDb */
 export async function myMaterials(db: ScopedDb): Promise<MyMaterial[]> {
   const rows = await db.fileAccess.findMany({
     where: { file: { kind: "MATERIAL", deletedAt: null } },
     orderBy: { updatedAt: "desc" },
-    select: { updatedAt: true, file: { select: { id: true, fileName: true, sizeBytes: true, description: true } } },
+    select: { updatedAt: true, file: { select: { id: true, fileName: true, contentType: true, sizeBytes: true, description: true } } },
   });
   return rows.map((r) => ({ ...r.file, sharedAt: r.updatedAt }));
 }

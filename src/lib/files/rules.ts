@@ -12,5 +12,17 @@ export function sizeText(bytes: number) {
   return `${Math.max(1, Math.round(bytes / 1024))}KB`;
 }
 
+/** 자료 카드에 붙이는 파일 형식 이름 ("PDF", "이미지" …). 모르면 "파일" */
+export function fileKindLabel(contentType: string) {
+  if (contentType === PDF_TYPE) return "PDF";
+  if (contentType.startsWith("image/")) return "이미지";
+  if (contentType.startsWith("audio/")) return "음성";
+  if (contentType.startsWith("video/")) return "영상";
+  if (/word|document/.test(contentType)) return "문서";
+  if (/sheet|excel/.test(contentType)) return "표";
+  if (/presentation|powerpoint/.test(contentType)) return "슬라이드";
+  return "파일";
+}
+
 /** FILE-05: 자료 설명 최대 글자 수 */
 export const DESCRIPTION_MAX = 2000;
