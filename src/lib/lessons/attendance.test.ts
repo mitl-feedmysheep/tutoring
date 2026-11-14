@@ -36,8 +36,8 @@ async function setup() {
   return { t, s, db: teacherDb(t.id) };
 }
 
-describe("완료·결석 체크 (LESSON-01, 03)", () => {
-  it("시작한 수업을 완료·결석으로 체크하고, null이면 풀린다", async () => {
+describe("참석·결석 체크 (LESSON-01, 03)", () => {
+  it("시작한 수업을 참석·결석으로 체크하고, null이면 풀린다", async () => {
     const { t, s, db } = await setup();
     const past = await lessonAt(t.id, s.id, at(9, 19 * 60));
     const started = await lessonAt(t.id, s.id, at(10, 11 * 60 + 30)); // 진행 중

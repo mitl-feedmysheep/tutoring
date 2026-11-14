@@ -231,7 +231,7 @@ function applyForced(model: Model, data: Where, forced: Where): Where {
   return { ...data, ...forced };
 }
 
-/** 출석(완료·결석)은 선생님만 체크한다 (LESSON-01). 학생 범위(선생님이 대신 바꾸기 포함)에서는 쓰지 못한다 */
+/** 출석(참석·결석)은 선생님만 체크한다 (LESSON-01). 학생 범위(선생님이 대신 바꾸기 포함)에서는 쓰지 못한다 */
 function checkTeacherOnlyFields(model: Model, data: Where, scope: Scope) {
   if (scope.kind === "student" && model === "Lesson" && data.attendance !== undefined) throw new ScopeError("출석은 선생님 범위에서만 체크합니다");
 }

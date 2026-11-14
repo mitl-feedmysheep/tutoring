@@ -28,7 +28,7 @@ export type CalendarSlot = {
   students: { lessonId: string; studentId: string; name: string; fixed: boolean; attendance: "COMPLETED" | "ABSENT" | null }[];
 };
 
-/** 시작한 수업 중 완료·결석을 아직 체크하지 않은 학생 수 (LESSON-01) */
+/** 시작한 수업 중 참석·결석을 아직 체크하지 않은 학생 수 (LESSON-01) */
 const uncheckedCount = (s: CalendarSlot) => (s.past ? s.students.filter((x) => x.attendance === null).length : 0);
 
 type Selection = { kind: "date"; date: string } | { kind: "slot"; id: string } | null;
@@ -377,7 +377,7 @@ function SlotDetail({ slot, onSelect }: { slot: CalendarSlot; onSelect: (s: Sele
         <h4 className="text-sm font-medium">{slot.past ? `수업한 학생 ${n}명` : `예약한 학생 ${n}명`}</h4>
         {n > 0 && (
           <p className="text-xs text-muted-foreground">
-            학생을 누르면 노트를 쓰고 지난 노트를 봐요.{slot.past && " 완료·결석을 체크해요. 다시 누르면 체크가 풀려요."}
+            학생을 누르면 노트를 쓰고 지난 노트를 봐요.{slot.past && " 참석·결석을 체크해요. 다시 누르면 체크가 풀려요."}
           </p>
         )}
         {n === 0 ? (

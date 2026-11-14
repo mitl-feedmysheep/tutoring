@@ -2,7 +2,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { ScopedDb } from "@/lib/db/scope";
 import { ScheduleError } from "@/lib/schedule/teacher";
 
-// 수업 기록: 완료·결석 체크 (LESSON-01, 03)와 학생별 수업 이력 (LESSON-02).
+// 수업 기록: 참석·결석 체크 (LESSON-01, 03)와 학생별 수업 이력 (LESSON-02).
 // db는 서버 세션에서 만든 teacherDb. 학생 범위에서는 범위 계층이 출석 쓰기를 막는다
 
 export type Attendance = "COMPLETED" | "ABSENT";
@@ -15,7 +15,7 @@ const recordable = (now: Date): Prisma.LessonWhereInput => ({
   slot: { deletedAt: null, startsAt: { lte: now } },
 });
 
-/** LESSON-01, 03: 완료·결석 체크. null이면 체크를 푼다 */
+/** LESSON-01, 03: 참석·결석 체크. null이면 체크를 푼다 */
 export async function setAttendance(db: ScopedDb, lessonId: unknown, value: unknown, now = new Date()) {
   if (typeof lessonId !== "string" || !ID.test(lessonId)) throw new ScheduleError("잘못된 요청이에요");
   if (value !== null && value !== "COMPLETED" && value !== "ABSENT") throw new ScheduleError("잘못된 요청이에요");

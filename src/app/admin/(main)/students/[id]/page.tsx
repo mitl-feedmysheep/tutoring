@@ -30,7 +30,7 @@ const BY_LABEL = { STUDENT: "학생", TEACHER: "선생님", SYSTEM: "자동" } a
 
 const lessonLabel = (startsAt: Date, endsAt: Date) => `${slotText(startsAt)}–${clockText(endsAt)}`;
 
-// 학생 카드 (ADMIN-01). 일정: 고정 일정·앞으로의 수업 바꾸기 (SCH-16), 일정 변경 이력 (SCH-17). 수업 이력과 완료·결석 체크 (LESSON-01, 02), 수업 노트 (NOTE-01~03), 공부 기록 (STUDY-06), 과외비 (PAY-03)
+// 학생 카드 (ADMIN-01). 일정: 고정 일정·앞으로의 수업 바꾸기 (SCH-16), 일정 변경 이력 (SCH-17). 수업 이력과 참석·결석 체크 (LESSON-01, 02), 수업 노트 (NOTE-01~03), 공부 기록 (STUDY-06), 과외비 (PAY-03)
 export default async function StudentCardPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ study?: string }> }) {
   const { id } = await params;
   const { db, teacherId } = await requireTeacher();

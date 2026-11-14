@@ -5,14 +5,14 @@ import { LessonNoteRow } from "./lesson-note";
 type Record = { id: string; label: string; fixed: boolean; attendance: "COMPLETED" | "ABSENT" | null; notes: { teacher: string; student: string } };
 type Totals = { completed: number; absent: number; unchecked: number };
 
-// 학생 카드의 수업 이력 (LESSON-02). 시작한 수업마다 완료·결석 체크 (LESSON-01)와 노트 (NOTE-01~03)
+// 학생 카드의 수업 이력 (LESSON-02). 시작한 수업마다 참석·결석 체크 (LESSON-01)와 노트 (NOTE-01~03)
 export function LessonRecords({ studentName, lessons, totals }: { studentName: string; lessons: Record[]; totals: Totals }) {
   return (
     <section className="grid gap-3 rounded-lg border bg-background p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-medium">수업 이력</h3>
         <p className="text-sm text-muted-foreground tabular-nums">
-          완료 {totals.completed} · 결석 {totals.absent}
+          참석 {totals.completed} · 결석 {totals.absent}
           {totals.unchecked > 0 && <span className="font-medium text-amber-700"> · 체크 전 {totals.unchecked}</span>}
         </p>
       </div>

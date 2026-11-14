@@ -8,11 +8,11 @@ import { setAttendanceAction } from "@/app/admin/lesson-record-actions";
 type Value = "COMPLETED" | "ABSENT" | null;
 
 const OPTIONS = [
-  { value: "COMPLETED", label: "완료", on: "border-emerald-600 bg-emerald-600 text-white" },
+  { value: "COMPLETED", label: "참석", on: "border-emerald-600 bg-emerald-600 text-white" },
   { value: "ABSENT", label: "결석", on: "border-amber-500 bg-amber-500 text-white" },
 ] as const;
 
-/** 완료·결석 체크 (LESSON-01, 03). 누른 것을 다시 누르면 체크가 풀린다 */
+/** 참석·결석 체크 (LESSON-01, 03). 누른 것을 다시 누르면 체크가 풀린다 */
 export function AttendanceToggle({ lessonId, value, name }: { lessonId: string; value: Value; name?: string }) {
   const [shown, setShown] = useOptimistic(value);
   const [pending, start] = useTransition();

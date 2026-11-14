@@ -7,7 +7,7 @@ import { noteHistory, saveTeacherNote } from "@/lib/lessons/notes";
 import { clockText, slotText } from "@/lib/schedule/kst";
 import { ScheduleError } from "@/lib/schedule/teacher";
 
-// 완료·결석 체크 (LESSON-01), 선생님 노트 (NOTE-01). teacherId는 requireTeacher(서버 세션)에서만 나오고, 클라이언트는 수업 id와 값만 보낸다
+// 참석·결석 체크 (LESSON-01), 선생님 노트 (NOTE-01). teacherId는 requireTeacher(서버 세션)에서만 나오고, 클라이언트는 수업 id와 값만 보낸다
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
