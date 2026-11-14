@@ -13,6 +13,7 @@ import { AttendanceToggle } from "@/components/admin/attendance-toggle";
 import { cn } from "@/lib/utils";
 import { WEEKDAYS, daysInMonth, dateKey, formatMinute } from "@/lib/schedule/kst";
 import { createOneOffSlotAction, deleteSlotAction } from "@/app/admin/schedule-actions";
+import { StudentNoteButton } from "./student-notes";
 
 export type CalendarSlot = {
   id: string;
@@ -102,7 +103,7 @@ export function ScheduleCalendar({ year, month, today, prevKey, nextKey, thisMon
   const selectedSlotId = selection?.kind === "slot" ? selection.id : undefined;
   const prevMonth = month === 1 ? 12 : month - 1;
 
-  const panel = <DetailPanel selection={selection} slots={slots} byDate={byDate} today={today} onSelect={setSelection} />;
+  const panel = <DetailPanel selection={selection} slots={slots} byDate={byDate} onSelect={setSelection} />;
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -139,6 +140,9 @@ export function ScheduleCalendar({ year, month, today, prevKey, nextKey, thisMon
             </span>
           </div>
         </div>
+
+        {/* 고른 날짜(지난 날이면 오늘)로 채워 둔다. 날짜를 다시 고르면 바뀐다 */}
+        <OneOffForm key={selectedDate && selectedDate >= today ? selectedDate : today} date={selectedDate && selectedDate >= today ? selectedDate : today} today={today} />
 
         {notGeneratedYet && (
           <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -259,13 +263,11 @@ function DetailPanel({
   selection,
   slots,
   byDate,
-  today,
   onSelect,
 }: {
   selection: Selection;
   slots: CalendarSlot[];
   byDate: Map<string, CalendarSlot[]>;
-  today: string;
   onSelect: (s: Selection) => void;
 }) {
   if (selection?.kind === "slot") {
@@ -273,12 +275,12 @@ function DetailPanel({
     if (slot) return <SlotDetail slot={slot} onSelect={onSelect} />;
   }
   if (selection?.kind === "date") {
-    return <DateDetail date={selection.date} slots={byDate.get(selection.date) ?? []} today={today} onSelect={onSelect} />;
+    return <DateDetail date={selection.date} slots={byDate.get(selection.date) ?? []} onSelect={onSelect} />;
   }
   return <p className="py-8 text-center text-sm text-muted-foreground">날짜나 수업을 누르면 여기에 자세히 보여요.</p>;
 }
 
-function DateDetail({ date, slots, today, onSelect }: { date: string; slots: CalendarSlot[]; today: string; onSelect: (s: Selection) => void }) {
+function DateDetail({ date, slots, onSelect }: { date: string; slots: CalendarSlot[]; onSelect: (s: Selection) => void }) {
   return (
     <div className="grid gap-5">
       <h3 className="text-lg font-semibold">{dateLabel(date)}</h3>
@@ -304,22 +306,17 @@ function DateDetail({ date, slots, today, onSelect }: { date: string; slots: Cal
           ))}
         </ul>
       )}
-
-      {date >= today ? (
-        <OneOffForm key={date} date={date} />
-      ) : (
-        <p className="text-xs text-muted-foreground">지난 날짜에는 슬롯을 추가할 수 없어요.</p>
-      )}
     </div>
   );
 }
 
-function OneOffForm({ date }: { date: string }) {
+/** 1회성 슬롯 추가 (SCH-12). 달력 위에 두고, 날짜는 달력에서 고른 날로 채운다 */
+function OneOffForm({ date, today }: { date: string; today: string }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string>();
   return (
     <form
-      className="grid gap-2 border-t pt-4"
+      className="grid gap-2 rounded-lg border bg-background p-3"
       onSubmit={(e) => {
         e.preventDefault();
         const form = new FormData(e.currentTarget);
@@ -332,17 +329,17 @@ function OneOffForm({ date }: { date: string }) {
         });
       }}
     >
-      <p className="text-sm font-medium">1회성 슬롯 추가</p>
-      <input type="hidden" name="date" value={date} />
-      <div className="flex items-center gap-2">
-        <Input type="time" name="start" step={300} defaultValue="19:00" required aria-label="시작 시간" />
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium">1회성 슬롯 추가</span>
+        <Input type="date" name="date" defaultValue={date} min={today} required aria-label="날짜" className="w-auto" />
+        <Input type="time" name="start" step={300} defaultValue="19:00" required aria-label="시작 시간" className="w-auto" />
         <span className="text-muted-foreground">–</span>
-        <Input type="time" name="end" step={300} defaultValue="20:00" required aria-label="끝나는 시간" />
+        <Input type="time" name="end" step={300} defaultValue="20:00" required aria-label="끝나는 시간" className="w-auto" />
+        <Button type="submit" disabled={pending}>
+          {pending ? "추가하는 중..." : "추가"}
+        </Button>
       </div>
       <FormError message={error} />
-      <Button type="submit" disabled={pending}>
-        {pending ? "추가하는 중..." : "추가"}
-      </Button>
     </form>
   );
 }
@@ -378,7 +375,11 @@ function SlotDetail({ slot, onSelect }: { slot: CalendarSlot; onSelect: (s: Sele
 
       <section className="grid gap-2">
         <h4 className="text-sm font-medium">{slot.past ? `수업한 학생 ${n}명` : `예약한 학생 ${n}명`}</h4>
-        {slot.past && n > 0 && <p className="text-xs text-muted-foreground">완료·결석을 체크해요. 다시 누르면 체크가 풀려요.</p>}
+        {n > 0 && (
+          <p className="text-xs text-muted-foreground">
+            이름을 누르면 노트를 쓰고 지난 노트를 봐요.{slot.past && " 완료·결석을 체크해요. 다시 누르면 체크가 풀려요."}
+          </p>
+        )}
         {n === 0 ? (
           <p className="text-sm text-muted-foreground">아직 예약한 학생이 없어요.</p>
         ) : (
@@ -386,10 +387,9 @@ function SlotDetail({ slot, onSelect }: { slot: CalendarSlot; onSelect: (s: Sele
             {slot.students.map((s) => (
               <li key={s.lessonId} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm">
                 <span className="grid min-w-0">
-                  {/* 학생 카드에서 노트를 쓴다 (NOTE-01) */}
-                  <Link href={`/admin/students/${s.studentId}`} className="truncate font-medium hover:underline">
+                  <StudentNoteButton lessonId={s.lessonId} studentId={s.studentId} name={s.name} label={`${dateLabel(slot.date)} ${timeRange(slot)}`} started={slot.past}>
                     {s.name}
-                  </Link>
+                  </StudentNoteButton>
                   {s.fixed && <span className="text-xs text-muted-foreground">고정 일정</span>}
                 </span>
                 {slot.past && <AttendanceToggle lessonId={s.lessonId} value={s.attendance} name={s.name} />}

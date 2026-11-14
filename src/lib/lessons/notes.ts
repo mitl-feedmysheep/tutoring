@@ -1,6 +1,7 @@
 import type { ScopedDb } from "@/lib/db/scope";
 import { isUniqueError, type StudentCtx } from "@/lib/schedule/student";
 import { ScheduleError } from "@/lib/schedule/teacher";
+import { lessonRecords } from "./attendance";
 import { cleanNote, NOTE_MAX } from "./note-text";
 
 // 수업 노트 (NOTE-01~05). 수업 1회마다 선생님 노트 1개, 학생 노트 1개 (lesson_note UNIQUE(lesson_id, author)).
@@ -81,4 +82,16 @@ export async function notesOf(db: ScopedDb, lessonIds: string[]): Promise<Map<st
     if (n) n[r.author === "TEACHER" ? "teacher" : "student"] = r.content;
   }
   return map;
+}
+
+export type NoteHistoryItem = { id: string; startsAt: Date; endsAt: Date; fixed: boolean; notes: LessonNotes };
+
+/**
+ * 일정 화면의 학생 노트 창 (NOTE-03): 그 학생의 시작한 수업과 두 노트, 최근 것부터.
+ * db는 teacherDb라 다른 선생님 학생이면 빈 목록이다
+ */
+export async function noteHistory(db: ScopedDb, studentId: string, now = new Date(), take = 30): Promise<NoteHistoryItem[]> {
+  const { lessons } = await lessonRecords(db, studentId, now, take);
+  const notes = await notesOf(db, lessons.map((l) => l.id));
+  return lessons.map((l) => ({ id: l.id, startsAt: l.startsAt, endsAt: l.endsAt, fixed: l.fixed, notes: notes.get(l.id) ?? { teacher: "", student: "" } }));
 }

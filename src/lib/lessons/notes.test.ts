@@ -5,7 +5,7 @@ import { ScopeError, studentDb, studentDbByTeacher, teacherDb } from "@/lib/db/s
 import { kstToUtc } from "@/lib/schedule/kst";
 import type { StudentCtx } from "@/lib/schedule/student";
 import { ScheduleError } from "@/lib/schedule/teacher";
-import { myNote, normalizeNote, NOTE_MAX, notesOf, saveStudentNote, saveTeacherNote } from "./notes";
+import { myNote, normalizeNote, NOTE_MAX, noteHistory, notesOf, saveStudentNote, saveTeacherNote } from "./notes";
 
 afterAll(() => prisma.$disconnect());
 
@@ -158,5 +158,24 @@ describe("학생 노트 (NOTE-02, APP-10)", () => {
     const ctx: StudentCtx = { db: studentDbByTeacher(t.id, s.id), teacherId: t.id, studentId: s.id, byTeacher: true };
     await expect(saveStudentNote(ctx, past.id, "- 위조", NOW)).rejects.toBeInstanceOf(ScopeError);
     expect(await rawNotes(past.id)).toEqual([]);
+  });
+});
+
+describe("학생별 노트 이력 (NOTE-03, 일정 화면)", () => {
+  it("시작한 수업만 최근 것부터 두 노트와 함께. 다른 선생님 범위로는 안 보인다", async () => {
+    const { t, s, db, ctx } = await setup();
+    const old = await lessonAt(t.id, s.id, at(3, 19 * 60));
+    const recent = await lessonAt(t.id, s.id, at(9, 19 * 60));
+    await lessonAt(t.id, s.id, at(17, 19 * 60)); // 아직 안 한 수업
+    await saveTeacherNote(db, old.id, "- 과거형", NOW);
+    await saveStudentNote(ctx, old.id, "어려웠다", NOW);
+
+    const items = await noteHistory(db, s.id, NOW);
+    expect(items.map((i) => i.id)).toEqual([recent.id, old.id]);
+    expect(items[0].notes).toEqual({ teacher: "", student: "" });
+    expect(items[1].notes).toEqual({ teacher: "- 과거형", student: "어려웠다" });
+
+    const other = await newTeacher();
+    expect(await noteHistory(teacherDb(other.id), s.id, NOW)).toEqual([]);
   });
 });
