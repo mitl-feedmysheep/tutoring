@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireTeacher } from "@/lib/auth/session";
-import { deleteMaterial, prepareMaterialUpload, saveMaterial, setMaterialAccess } from "@/lib/files/materials";
+import { deleteMaterial, prepareMaterialUpload, saveMaterial, setMaterialAccess, setMaterialDescription } from "@/lib/files/materials";
 import { ScheduleError } from "@/lib/schedule/teacher";
 import type { ActionResult } from "@/app/lesson-actions";
 
@@ -36,6 +36,14 @@ export async function setMaterialAccessAction(fileId: string, studentIds: string
   const { db } = await requireTeacher();
   return run(async () => {
     await setMaterialAccess(db, fileId, studentIds);
+    return {};
+  });
+}
+
+export async function setMaterialDescriptionAction(fileId: string, text: string) {
+  const { db } = await requireTeacher();
+  return run(async () => {
+    await setMaterialDescription(db, fileId, text);
     return {};
   });
 }

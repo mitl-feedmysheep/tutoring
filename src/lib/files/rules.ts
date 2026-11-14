@@ -11,3 +11,6 @@ export function sizeText(bytes: number) {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1).replace(/\.0$/, "")}MB`;
   return `${Math.max(1, Math.round(bytes / 1024))}KB`;
 }
+
+/** FILE-05: 자료 설명 최대 글자 수 */
+export const DESCRIPTION_MAX = 2000;

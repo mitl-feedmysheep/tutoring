@@ -7,10 +7,11 @@ import { sizeText } from "@/lib/files/rules";
 import { listTimeText } from "@/lib/board/format";
 import { SubScreen } from "@/components/app/screens";
 import { Card, Empty, Rule } from "@/components/app/ui";
+import { LinkifiedText } from "@/components/linkified-text";
 
 export const metadata: Metadata = { title: "자료실" };
 
-type Item = { id: string; fileName: string; sizeBytes: number; note: string };
+type Item = { id: string; fileName: string; sizeBytes: number; description: string | null; meta: string };
 
 // MY > 자료실 (FILE-03, APP-17). 학생은 나에게 공개된 자료, 선생님은 올린 자료 전부.
 // 누르면 PDF가 새 창(아이폰 홈 화면 앱에서는 앱 안 브라우저)으로 열린다. 저장은 그 화면의 공유·저장 기능으로
@@ -20,10 +21,10 @@ export default async function FilesScreen() {
   let items: Item[];
   if (claims.role === "student") {
     const rows = await myMaterials(studentDb(claims.teacherId, claims.studentId));
-    items = rows.map((r) => ({ ...r, note: listTimeText(r.sharedAt, now) }));
+    items = rows.map((r) => ({ ...r, meta: listTimeText(r.sharedAt, now) }));
   } else {
     const rows = await listMaterials(teacherDb(claims.teacherId));
-    items = rows.map((r) => ({ ...r, note: r.shared ? `${r.shared}명 공개` : "비공개" }));
+    items = rows.map((r) => ({ ...r, meta: r.shared ? `${r.shared}명 공개` : "비공개" }));
   }
 
   return (
@@ -34,17 +35,25 @@ export default async function FilesScreen() {
       ) : (
         <Card>
           {items.map((f) => (
-            <a key={f.id} href={`/files/${f.id}`} target="_blank" rel="noopener" className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-                <FileText className="size-5" />
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-[15px] font-semibold">{f.fileName}</span>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {sizeText(f.sizeBytes)} · {f.note}
+            <div key={f.id}>
+              <a href={`/files/${f.id}`} target="_blank" rel="noopener" className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
+                  <FileText className="size-5" />
                 </span>
-              </span>
-            </a>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate text-[15px] font-semibold">{f.fileName}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {sizeText(f.sizeBytes)} · {f.meta}
+                  </span>
+                </span>
+              </a>
+              {/* FILE-05: 선생님 설명. 링크를 누를 수 있게 PDF 링크 밖에 둔다 */}
+              {f.description && (
+                <div className="-mt-1 px-4 pb-3 pl-[4.25rem]">
+                  <LinkifiedText text={f.description} className="rounded-lg bg-accent/50 px-3 py-2 text-[13px] leading-relaxed text-foreground/80" />
+                </div>
+              )}
+            </div>
           ))}
         </Card>
       )}

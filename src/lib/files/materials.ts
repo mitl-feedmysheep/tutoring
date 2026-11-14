@@ -5,7 +5,7 @@ import { isUniqueError } from "@/lib/schedule/student";
 import { ScheduleError } from "@/lib/schedule/teacher";
 import { r2, type Storage } from "@/lib/storage/r2";
 import { uuidv7 } from "@/lib/study/study";
-import { FILE_NAME_MAX, MATERIAL_MAX_BYTES, PDF_TYPE, sizeText } from "./rules";
+import { DESCRIPTION_MAX, FILE_NAME_MAX, MATERIAL_MAX_BYTES, PDF_TYPE, sizeText } from "./rules";
 
 // 자료실 (FILE-01, 03, APP-17). 선생님이 PDF를 올리고 원하는 학생에게 공개한다. 처음엔 아무에게도 안 보인다.
 // 선생님은 teacherDb, 학생은 studentDb. 학생 범위에서는 범위 계층이 자기에게 공개된 자료만 보여 준다.
@@ -76,14 +76,14 @@ export async function saveMaterial(db: ScopedDb, teacherId: string, token: unkno
 
 const ACTIVE_STUDENT = { student: { deactivatedAt: null, deletedAt: null } };
 
-export type MaterialRow = { id: string; fileName: string; sizeBytes: number; createdAt: Date; shared: number };
+export type MaterialRow = { id: string; fileName: string; sizeBytes: number; description: string | null; createdAt: Date; shared: number };
 
 /** 자료 목록 (최근 올린 것부터). shared: 공개한 활성 학생 수 */
 export async function listMaterials(db: ScopedDb): Promise<MaterialRow[]> {
   const rows = await db.file.findMany({
     where: { kind: "MATERIAL" },
     orderBy: { createdAt: "desc" },
-    select: { id: true, fileName: true, sizeBytes: true, createdAt: true, _count: { select: { accesses: { where: ACTIVE_STUDENT } } } },
+    select: { id: true, fileName: true, sizeBytes: true, description: true, createdAt: true, _count: { select: { accesses: { where: ACTIVE_STUDENT } } } },
   });
   return rows.map(({ _count, ...r }) => ({ ...r, shared: _count.accesses }));
 }
@@ -91,7 +91,7 @@ export async function listMaterials(db: ScopedDb): Promise<MaterialRow[]> {
 /** 자료 하나와 활성 학생마다 공개 여부 (이름 순). 없으면 null */
 export async function materialDetail(db: ScopedDb, id: string) {
   if (!ID.test(id)) return null;
-  const file = await db.file.findFirst({ where: { id, kind: "MATERIAL" }, select: { id: true, fileName: true, sizeBytes: true, createdAt: true } });
+  const file = await db.file.findFirst({ where: { id, kind: "MATERIAL" }, select: { id: true, fileName: true, sizeBytes: true, createdAt: true, description: true } });
   if (!file) return null;
   const [students, accesses] = await Promise.all([
     db.student.findMany({ where: { deactivatedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
@@ -129,6 +129,16 @@ export async function setMaterialAccess(db: ScopedDb, fileId: unknown, studentId
   });
 }
 
+/** FILE-05: 학생에게 보일 설명(링크·참고 글). 빈 칸이면 지운다 */
+export async function setMaterialDescription(db: ScopedDb, fileId: unknown, text: unknown) {
+  const id = checkId(fileId);
+  if (typeof text !== "string") throw new ScheduleError("잘못된 요청이에요");
+  const description = text.replace(/\r\n?/g, "\n").trim();
+  if (description.length > DESCRIPTION_MAX) throw new ScheduleError(`설명은 ${DESCRIPTION_MAX.toLocaleString()}자까지 쓸 수 있어요`);
+  const { count } = await db.file.updateMany({ where: { id, kind: "MATERIAL" }, data: { description: description || null } });
+  if (count === 0) throw new ScheduleError("없는 자료예요");
+}
+
 /** 자료 지우기. 공개한 학생에게서도 사라진다 (R2 파일은 남긴다, 공부 사진과 같음) */
 export async function deleteMaterial(db: ScopedDb, fileId: unknown, now = new Date()) {
   const id = checkId(fileId);
@@ -138,14 +148,14 @@ export async function deleteMaterial(db: ScopedDb, fileId: unknown, now = new Da
 
 // ── 학생
 
-export type MyMaterial = { id: string; fileName: string; sizeBytes: number; sharedAt: Date };
+export type MyMaterial = { id: string; fileName: string; sizeBytes: number; description: string | null; sharedAt: Date };
 
 /** 학생 자료실: 나에게 공개된 자료 (최근 공개한 것부터). db는 studentDb */
 export async function myMaterials(db: ScopedDb): Promise<MyMaterial[]> {
   const rows = await db.fileAccess.findMany({
     where: { file: { kind: "MATERIAL", deletedAt: null } },
     orderBy: { updatedAt: "desc" },
-    select: { updatedAt: true, file: { select: { id: true, fileName: true, sizeBytes: true } } },
+    select: { updatedAt: true, file: { select: { id: true, fileName: true, sizeBytes: true, description: true } } },
   });
   return rows.map((r) => ({ ...r.file, sharedAt: r.updatedAt }));
 }

@@ -312,6 +312,7 @@
 | r2_key | VARCHAR(200) | `teachers/{teacherId}/{kind}/{id}.{ext}` |
 | content_type | VARCHAR(100) | |
 | size_bytes | INT | |
+| description | TEXT NULL | 자료 설명. 링크·참고 글 (FILE-05) |
 | sort_order | TINYINT | 사진 순서 (최대 10장) |
 
 - `UNIQUE (teacher_id, id)`, `INDEX (teacher_id, kind, created_at)`, `INDEX (study_log_id)`

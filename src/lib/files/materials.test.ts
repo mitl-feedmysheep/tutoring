@@ -14,6 +14,7 @@ import {
   prepareMaterialUpload,
   saveMaterial,
   setMaterialAccess,
+  setMaterialDescription,
 } from "./materials";
 import { MATERIAL_MAX_BYTES, PDF_TYPE } from "./rules";
 
@@ -149,6 +150,35 @@ describe("학생별 공개 (FILE-03)", () => {
     expect(await materialViewUrl(adb, id)).toBeNull();
     await err(setMaterialAccess(db, id, [a.id]), "없는 자료예요");
     await err(deleteMaterial(db, id), "없는 자료예요");
+  });
+});
+
+describe("설명 (FILE-05)", () => {
+  it("설명을 쓰고 고치고 지운다. 공개한 학생에게 같이 보인다. 2,000자까지", async () => {
+    const { a, db, adb, upload } = await setup();
+    const id = await upload();
+    await setMaterialDescription(db, id, "  3과까지 읽고 오세요\r\n참고 https://example.com  ");
+    expect((await materialDetail(db, id))!.file.description).toBe("3과까지 읽고 오세요\n참고 https://example.com");
+    expect((await listMaterials(db))[0].description).toBe("3과까지 읽고 오세요\n참고 https://example.com");
+
+    await setMaterialAccess(db, id, [a.id]);
+    expect(await myMaterials(adb)).toMatchObject([{ id, description: "3과까지 읽고 오세요\n참고 https://example.com" }]);
+
+    await setMaterialDescription(db, id, "   ");
+    expect((await materialDetail(db, id))!.file.description).toBeNull();
+
+    await err(setMaterialDescription(db, id, "x".repeat(2001)), "설명은 2,000자까지 쓸 수 있어요");
+    await err(setMaterialDescription(db, id, 1), "잘못된 요청이에요");
+  });
+
+  it("다른 선생님과 학생은 설명을 고치지 못한다", async () => {
+    const { adb, db, upload } = await setup();
+    const id = await upload();
+    await setMaterialDescription(db, id, "원래 설명");
+    const t2 = await newTeacher();
+    await err(setMaterialDescription(teacherDb(t2.id), id, "바꿈"), "없는 자료예요");
+    await expect(setMaterialDescription(adb, id, "바꿈")).rejects.toThrow();
+    expect((await materialDetail(db, id))!.file.description).toBe("원래 설명");
   });
 });
 

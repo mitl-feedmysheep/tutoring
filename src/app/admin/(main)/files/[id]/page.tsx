@@ -8,10 +8,11 @@ import { sizeText } from "@/lib/files/rules";
 import { paidDateText } from "@/lib/payments/payments";
 import { formatKst } from "@/lib/time";
 import { AccessEditor, DeleteMaterialButton } from "./access-editor";
+import { DescriptionEditor } from "./description-editor";
 
 export const metadata: Metadata = { title: "자료" };
 
-// 자료 하나: 열기, 공개할 학생 고르기 (FILE-03), 지우기
+// 자료 하나: 열기, 학생에게 보일 설명 (FILE-05), 공개할 학생 고르기 (FILE-03), 지우기
 export default async function MaterialPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { db } = await requireTeacher();
@@ -45,6 +46,9 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
         </a>
         <DeleteMaterialButton fileId={file.id} name={file.fileName} />
       </div>
+
+      <h2 className="mt-2 font-semibold">학생에게 보일 설명</h2>
+      <DescriptionEditor fileId={file.id} saved={file.description ?? ""} />
 
       <h2 className="mt-2 font-semibold">공개할 학생</h2>
       <AccessEditor fileId={file.id} students={students.map((s) => ({ id: s.id, name: s.name, sharedText: s.sharedAt ? paidDateText(s.sharedAt) : null }))} />
