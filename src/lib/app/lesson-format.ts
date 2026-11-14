@@ -1,4 +1,4 @@
-import { ampmText, kstParts, kstToUtc, WEEKDAYS } from "@/lib/schedule/kst";
+import { ampmText, formatMinute, kstParts, kstToUtc, WEEKDAYS } from "@/lib/schedule/kst";
 
 // 수업 화면 표시용 (KST)
 
@@ -25,4 +25,12 @@ export function nextDayText(startsAt: Date, now: Date) {
   if (sameKstDay(startsAt, now)) return `오늘 (${md} ${WEEKDAYS[p.weekday]})`;
   if (sameKstDay(startsAt, tomorrow)) return `내일 (${md} ${WEEKDAYS[p.weekday]})`;
   return `${md} (${WEEKDAYS[p.weekday]})`;
+}
+
+/** 내 고정 일정 한 줄 ("매주 월 · 수 19:00", 없으면 "없음") */
+export function weeklyText(weekly: { weekday: number; startMinute: number }[]) {
+  if (weekly.length === 0) return "없음";
+  const times = new Set(weekly.map((w) => w.startMinute));
+  if (times.size === 1) return `매주 ${weekly.map((w) => WEEKDAYS[w.weekday]).join(" · ")} ${formatMinute(weekly[0].startMinute)}`;
+  return `매주 ${weekly.map((w) => `${WEEKDAYS[w.weekday]} ${formatMinute(w.startMinute)}`).join(" · ")}`;
 }

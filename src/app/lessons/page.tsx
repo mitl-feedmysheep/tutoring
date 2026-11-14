@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireStudent } from "@/lib/auth/session";
-import { sameKstDay } from "@/lib/app/lesson-format";
-import { clockText, dayLabel, formatMinute, kstParts, WEEKDAYS } from "@/lib/schedule/kst";
+import { sameKstDay, weeklyText } from "@/lib/app/lesson-format";
+import { clockText, dayLabel, kstParts } from "@/lib/schedule/kst";
 import { myWeeklySchedule, pastLessons, upcomingLessons, type MyLesson } from "@/lib/schedule/student";
 import { SubScreen } from "@/components/app/screens";
 import { ReplaceLink } from "@/components/app/nav";
@@ -77,13 +77,6 @@ function Segment({ href, on, children }: { href: string; on: boolean; children: 
 }
 
 /** "매주 화 · 목 19:00". 시간이 다르면 "매주 화 19:00 · 목 20:00" */
-function weeklyText(weekly: { weekday: number; startMinute: number }[]) {
-  if (weekly.length === 0) return "없음";
-  const times = new Set(weekly.map((w) => w.startMinute));
-  if (times.size === 1) return `매주 ${weekly.map((w) => WEEKDAYS[w.weekday]).join(" · ")} ${formatMinute(weekly[0].startMinute)}`;
-  return `매주 ${weekly.map((w) => `${WEEKDAYS[w.weekday]} ${formatMinute(w.startMinute)}`).join(" · ")}`;
-}
-
 /** 달별로 묶는다. 올해가 아니면 연도도 쓴다 */
 function groupByMonth(lessons: MyLesson[], now: Date) {
   const thisYear = kstParts(now).year;
