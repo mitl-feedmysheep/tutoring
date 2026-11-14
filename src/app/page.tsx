@@ -20,7 +20,7 @@ export default async function LessonTab({ searchParams }: { searchParams: Promis
   const account = await requireUser();
   const { claims } = account;
   const isTeacher = claims.role === "teacher";
-  const title = <span className="text-[15px]">{`${account.name}${isTeacher ? " 선생님" : "님"}, ${dailyCheer()}`}</span>;
+  const title = <span className="text-[17px]">{`${account.name}${isTeacher ? " 선생님" : "님"}, ${dailyCheer()}`}</span>;
   const now = new Date();
   const ym = parseMonthKey((await searchParams).month) ?? monthOf(now);
   const today = kstParts(now);
