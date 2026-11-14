@@ -8,8 +8,8 @@ import { Card, Notice, Row, Rule } from "./ui";
 
 type State = "loading" | "ios-install" | "unsupported" | "denied" | "off" | "on";
 
-// MY > 알림 설정 (APP-12, APP-18). 이 기기 알림을 켜고 끄는 스위치 하나
-export function NotificationSettings({ publicKey }: { publicKey: string | null }) {
+// MY > 알림 설정 (APP-12, APP-18). 이 기기 알림을 켜고 끄는 스위치 하나. 시험 알림은 선생님에게만
+export function NotificationSettings({ publicKey, canTest }: { publicKey: string | null; canTest: boolean }) {
   const [state, setState] = useState<State>("loading");
   const [busy, setBusy] = useState(false);
 
@@ -83,7 +83,7 @@ export function NotificationSettings({ publicKey }: { publicKey: string | null }
           <span>이 기기에서 알림 받기</span>
           <Switch checked={state === "on"} disabled={busy || state === "denied"} onChange={toggle} />
         </Row>
-        {state === "on" && (
+        {state === "on" && canTest && (
           <Row>
             <span className="text-muted-foreground">알림이 오는지 확인</span>
             <button type="button" onClick={test} disabled={busy} className="shrink-0 rounded-full bg-accent px-3.5 py-1.5 text-sm font-bold text-primary disabled:opacity-50">

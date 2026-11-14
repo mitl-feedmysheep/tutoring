@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { askConfirm } from "@/components/confirm-dialog";
 import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "@/lib/toast";
@@ -350,13 +351,10 @@ function SlotDetail({ slot, onSelect }: { slot: CalendarSlot; onSelect: (s: Sele
   const [pending, start] = useTransition();
   const n = slot.students.length;
 
-  function remove() {
-    const parts = [
-      n > 0 ? `예약한 학생 ${n}명의 수업도 함께 취소돼요.` : "",
-      slot.weekly ? "고정 수업 시간은 그대로 두고 이 날만 쉬어요." : "",
-      "이 슬롯을 지울까요?",
-    ];
-    if (!confirm(parts.filter(Boolean).join("\n"))) return;
+  async function remove() {
+    const parts = [n > 0 ? `예약한 학생 ${n}명의 수업도 함께 취소돼요.` : "", slot.weekly ? "고정 수업 시간은 그대로 두고 이 날만 쉬어요." : ""];
+    const ok = await askConfirm({ title: "이 슬롯을 지울까요?", description: parts.filter(Boolean).join("\n") || undefined, confirmLabel: "지우기", destructive: true });
+    if (!ok) return;
     start(async () => {
       const res = await deleteSlotAction(slot.id);
       if (res.ok) {

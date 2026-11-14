@@ -143,14 +143,15 @@ describe("보내기", () => {
     expect((await row(flaky.endpoint))!.deletedAt).toBeNull();
   });
 
-  it("시험 알림은 내 이 기기에만 간다", async () => {
-    const { st1, st2 } = await tenant();
+  it("시험 알림은 선생님 본인 이 기기에만 간다. 학생은 보낼 수 없다", async () => {
+    const { teacher, st1 } = await tenant();
     const mine = sub();
-    const other = sub();
-    await savePushSubscription(st1, mine, null);
-    await savePushSubscription(st2, other, null);
-    expect(await sendTestPush(st1, mine.endpoint)).toBe(1);
+    const studentDevice = sub();
+    await savePushSubscription(teacher, mine, null);
+    await savePushSubscription(st1, studentDevice, null);
+    expect(await sendTestPush(teacher, mine.endpoint)).toBe(1);
     expect(sentTo()).toEqual([mine.endpoint]);
-    await err(sendTestPush(st1, other.endpoint), "이 기기 알림이 꺼져 있어요");
+    await err(sendTestPush(teacher, studentDevice.endpoint), "이 기기 알림이 꺼져 있어요");
+    await err(sendTestPush(st1, studentDevice.endpoint), "시험 알림은 선생님만 보낼 수 있어요");
   });
 });

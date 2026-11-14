@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,11 @@ import { signupAction } from "@/app/auth-actions";
 export function SignupForm({ token }: { token: string }) {
   const [state, action, pending] = useActionState(signupAction.bind(null, token), undefined);
   const v = state?.values;
+  // 칸을 모두 채우고 동의에 체크해야 가입하기가 켜진다. 브라우저의 "이 입력란을 작성하세요" 말풍선 대신 버튼으로 알린다.
+  // 비밀번호는 다시 채워 넣지 않으므로 처음(오류 뒤 포함)에는 늘 꺼져 있다
+  const [ready, setReady] = useState(false);
   return (
-    <form action={action} className="grid gap-4">
+    <form action={action} onChange={(e) => setReady(e.currentTarget.checkValidity())} className="grid gap-4">
       <Field label="이름" htmlFor="name">
         <Input id="name" name="name" autoComplete="name" maxLength={50} required defaultValue={v?.name} />
       </Field>
@@ -53,7 +56,7 @@ export function SignupForm({ token }: { token: string }) {
       </Field>
       <PrivacyConsent defaultChecked={v?.agree === "on"} />
       <FormError message={state?.error} />
-      <Button type="submit" disabled={pending} className="w-full">
+      <Button type="submit" disabled={pending || !ready} className="w-full">
         {pending ? "가입하는 중..." : "가입하기"}
       </Button>
     </form>

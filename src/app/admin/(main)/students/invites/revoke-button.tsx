@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { askConfirm } from "@/components/confirm-dialog";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { revokeInviteAction } from "@/app/admin/actions";
@@ -12,8 +13,8 @@ export function RevokeButton({ id }: { id: string }) {
       variant="ghost"
       size="sm"
       disabled={pending}
-      onClick={() => {
-        if (!confirm("이 링크를 취소할까요? 취소하면 이 링크로 가입할 수 없어요.")) return;
+      onClick={async () => {
+        if (!(await askConfirm({ title: "이 링크를 취소할까요?", description: "취소하면 이 링크로 가입할 수 없어요.", confirmLabel: "링크 취소", destructive: true }))) return;
         start(async () => {
           const ok = await revokeInviteAction(id);
           if (ok) toast.success("링크를 취소했어요");

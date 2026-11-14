@@ -125,6 +125,8 @@ export async function sendPush(teacherId: string, to: PushTarget, payload: PushP
 
 /** 알림 설정 화면의 "시험 알림": 이 기기에만 보낸다 */
 export async function sendTestPush(claims: SessionClaims, endpoint: unknown, now = new Date()): Promise<number> {
+  // APP-18: 시험 알림은 선생님만 (학생 화면에는 버튼이 없다)
+  if (claims.role !== "teacher") throw new ScheduleError("시험 알림은 선생님만 보낼 수 있어요");
   const db = dbOf(claims);
   const rows = await db.pushSubscription.findMany({
     where: { endpoint: endpointOf(endpoint), ...mine(claims) },

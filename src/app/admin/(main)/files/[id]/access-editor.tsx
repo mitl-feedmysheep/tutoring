@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { askConfirm } from "@/components/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import { startNav } from "@/components/app/nav-progress";
@@ -74,8 +75,8 @@ export function DeleteMaterialButton({ fileId, name }: { fileId: string; name: s
       variant="outline"
       className="text-red-700 hover:text-red-700"
       disabled={pending}
-      onClick={() => {
-        if (!confirm(`"${name}"을(를) 지울까요? 공개한 학생에게서도 사라져요.`)) return;
+      onClick={async () => {
+        if (!(await askConfirm({ title: `"${name}"을(를) 지울까요?`, description: "공개한 학생에게서도 사라져요.", confirmLabel: "지우기", destructive: true }))) return;
         start(async () => {
           const res = await deleteMaterialAction(fileId);
           if (!res.ok) return void toast.error(res.error);

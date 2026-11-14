@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { askConfirm } from "@/components/confirm-dialog";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -22,10 +23,10 @@ export function LessonNoteRow({ children, actions, ...props }: Props & { childre
   const { teacher, student } = props;
 
   // 저장 안 한 내용이 있으면 닫기 전에 묻는다 (수업 중에 쓴 노트를 실수로 잃지 않게)
-  const close = (next: boolean) => {
+  const close = async (next: boolean) => {
     if (next) return setOpen(true);
     if (dirty) {
-      if (!window.confirm("저장하지 않은 노트가 있어요. 닫을까요?")) return;
+      if (!(await askConfirm({ title: "저장하지 않은 노트가 있어요. 닫을까요?", description: "닫으면 쓴 내용이 사라져요.", confirmLabel: "닫기", cancelLabel: "계속 쓸게요", destructive: true }))) return;
       discardNoteDraft(draftKey(props.lessonId));
     }
     setDirty(false);

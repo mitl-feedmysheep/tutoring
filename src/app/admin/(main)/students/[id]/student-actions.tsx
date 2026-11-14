@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { askConfirm } from "@/components/confirm-dialog";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,13 +76,16 @@ export function DeactivateButton({ studentId, name }: { studentId: string; name:
       size="sm"
       disabled={pending}
       className="text-destructive hover:text-destructive"
-      onClick={() => {
-        const ok = confirm(
-          `${name} 학생을 비활성화할까요?\n\n` +
+      onClick={async () => {
+        const ok = await askConfirm({
+          title: `${name} 학생을 비활성화할까요?`,
+          description:
             "- 학생은 바로 로그아웃되고 로그인할 수 없어요.\n" +
             "- 앞으로 잡힌 수업은 모두 취소돼요. 고정 일정은 남지만 새 수업은 만들어지지 않아요.\n" +
             "- 기록은 남고, 학생 목록 아래 '비활성 학생'에서 다시 활성화할 수 있어요.",
-        );
+          confirmLabel: "비활성화",
+          destructive: true,
+        });
         if (!ok) return;
         start(async () => {
           const r = await deactivateStudentAction(studentId);
@@ -102,8 +106,9 @@ export function ReactivateButton({ studentId, name }: { studentId: string; name:
     <Button
       size="sm"
       disabled={pending}
-      onClick={() => {
-        if (!confirm(`${name} 학생을 다시 활성화할까요?\n비활성화 때 취소된 수업과 고정 일정이 다시 잡혀요.`)) return;
+      onClick={async () => {
+        const ok = await askConfirm({ title: `${name} 학생을 다시 활성화할까요?`, description: "비활성화 때 취소된 수업과 고정 일정이 다시 잡혀요.", confirmLabel: "다시 활성화" });
+        if (!ok) return;
         start(async () => {
           const r = await reactivateStudentAction(studentId);
           if (!r.ok) return void toast.error(r.error);

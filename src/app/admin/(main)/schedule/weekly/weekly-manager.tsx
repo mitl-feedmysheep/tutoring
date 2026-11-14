@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { askConfirm } from "@/components/confirm-dialog";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,12 +101,12 @@ function ViewRow({ w, onEdit }: { w: Weekly; onEdit: () => void }) {
   const [pending, start] = useTransition();
   const n = w.students.length;
 
-  function remove() {
-    const message =
+  async function remove() {
+    const description =
       n > 0
-        ? `이 시간에 고정 일정을 둔 학생이 ${n}명 있어요.\n이미 만들어진 달의 수업은 그대로 두고, 그 다음 달부터 이 시간이 없어져요.\n지울까요?`
-        : "이 고정 시간을 지울까요?\n앞으로의 빈 슬롯도 함께 지워져요. 예약이 있는 슬롯은 남아요.";
-    if (!confirm(message)) return;
+        ? `이 시간에 고정 일정을 둔 학생이 ${n}명 있어요.\n이미 만들어진 달의 수업은 그대로 두고, 그 다음 달부터 이 시간이 없어져요.`
+        : "앞으로의 빈 슬롯도 함께 지워져요. 예약이 있는 슬롯은 남아요.";
+    if (!(await askConfirm({ title: "이 고정 시간을 지울까요?", description, confirmLabel: "지우기", destructive: true }))) return;
     start(async () => {
       const res = await deleteWeeklySlotAction(w.id);
       if (res.ok) toast.success(resultMessage(res.result, "고정 시간을 지웠어요"));
