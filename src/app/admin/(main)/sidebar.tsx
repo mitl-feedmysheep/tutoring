@@ -33,18 +33,21 @@ export function Sidebar({ teacherName, isAdmin, onNavigate }: { teacherName: str
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        {(isAdmin ? [...NAV, ...ADMIN_NAV] : NAV).map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={itemClass(pathname === item.href || pathname.startsWith(item.href + "/"))}
-          >
-            <item.icon className="size-5" />
-            {item.name}
-          </Link>
-        ))}
+      <nav className="flex flex-1 flex-col px-3 py-4">
+        <div className="space-y-1">
+          {NAV.map((item) => (
+            <NavLink key={item.href} item={item} pathname={pathname} onNavigate={onNavigate} />
+          ))}
+        </div>
+        {/* 관리자 전용은 아래로 떼어 놓아 선생님 기능과 헷갈리지 않게 한다 */}
+        {isAdmin && (
+          <div className="mt-auto space-y-1 border-t border-slate-800 pt-4">
+            <p className="px-3 pb-1 text-xs font-semibold tracking-wide text-slate-500">관리자 전용</p>
+            {ADMIN_NAV.map((item) => (
+              <NavLink key={item.href} item={item} pathname={pathname} onNavigate={onNavigate} />
+            ))}
+          </div>
+        )}
       </nav>
 
       <div className="space-y-1 border-t border-slate-800 p-3">
@@ -61,5 +64,14 @@ export function Sidebar({ teacherName, isAdmin, onNavigate }: { teacherName: str
         </form>
       </div>
     </aside>
+  );
+}
+
+function NavLink({ item, pathname, onNavigate }: { item: (typeof NAV)[number]; pathname: string; onNavigate?: () => void }) {
+  return (
+    <Link href={item.href} onClick={onNavigate} className={itemClass(pathname === item.href || pathname.startsWith(item.href + "/"))}>
+      <item.icon className="size-5" />
+      {item.name}
+    </Link>
   );
 }
