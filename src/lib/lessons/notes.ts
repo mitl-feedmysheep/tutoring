@@ -1,5 +1,5 @@
 import type { ScopedDb } from "@/lib/db/scope";
-import { isUniqueError, type StudentCtx } from "@/lib/schedule/student";
+import { isUniqueError, pastLessons, type MyLesson, type StudentCtx } from "@/lib/schedule/student";
 import { ScheduleError } from "@/lib/schedule/teacher";
 import { lessonRecords } from "./attendance";
 import { cleanNote, NOTE_MAX } from "./note-text";
@@ -68,6 +68,16 @@ export async function saveStudentNote(ctx: StudentCtx, lessonId: unknown, conten
 export async function myNote(ctx: StudentCtx, lessonId: string) {
   const note = await ctx.db.lessonNote.findFirst({ where: { lessonId, author: "STUDENT" }, select: { content: true } });
   return note?.content ?? "";
+}
+
+/**
+ * APP-21: 수업 탭 "지난 수업 노트 쓰기". 가장 최근에 끝난 수업 하나만 본다.
+ * 내 노트가 비어 있으면 그 수업, 아니면(또는 결석이면) null. 취소한 수업은 pastLessons에서 빠진다
+ */
+export async function lessonNeedingNote(ctx: StudentCtx, now = new Date()): Promise<MyLesson | null> {
+  const [last] = await pastLessons(ctx, now, 1);
+  if (!last || last.attendance === "ABSENT") return null;
+  return (await myNote(ctx, last.id)) === "" ? last : null;
 }
 
 export type LessonNotes = { teacher: string; student: string };

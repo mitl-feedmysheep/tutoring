@@ -5,7 +5,7 @@ import { ScopeError, studentDb, studentDbByTeacher, teacherDb } from "@/lib/db/s
 import { kstToUtc } from "@/lib/schedule/kst";
 import type { StudentCtx } from "@/lib/schedule/student";
 import { ScheduleError } from "@/lib/schedule/teacher";
-import { myNote, normalizeNote, NOTE_MAX, noteHistory, notesOf, saveStudentNote, saveTeacherNote } from "./notes";
+import { lessonNeedingNote, myNote, normalizeNote, NOTE_MAX, noteHistory, notesOf, saveStudentNote, saveTeacherNote } from "./notes";
 
 afterAll(() => prisma.$disconnect());
 
@@ -177,5 +177,59 @@ describe("학생별 노트 이력 (NOTE-03, 일정 화면)", () => {
 
     const other = await newTeacher();
     expect(await noteHistory(teacherDb(other.id), s.id, NOW)).toEqual([]);
+  });
+});
+
+describe("지난 수업 노트 쓰기 카드 (APP-21)", () => {
+  it("가장 최근에 끝난 수업의 내 노트가 비어 있을 때만 그 수업을 준다", async () => {
+    const { t, s, db, ctx } = await setup();
+    expect(await lessonNeedingNote(ctx, NOW)).toBeNull(); // 지난 수업 없음
+
+    const older = await lessonAt(t.id, s.id, at(8, 19 * 60));
+    const last = await lessonAt(t.id, s.id, at(9, 19 * 60));
+    await lessonAt(t.id, s.id, at(10, 11 * 60 + 30)); // 진행 중: 아직 안 끝남
+    await lessonAt(t.id, s.id, at(11, 19 * 60)); // 예정
+    expect((await lessonNeedingNote(ctx, NOW))?.id).toBe(last.id);
+
+    // 선생님 노트만 있어도 내 노트가 비어 있으면 보인다
+    await saveTeacherNote(db, last.id, "- T", NOW);
+    expect((await lessonNeedingNote(ctx, NOW))?.id).toBe(last.id);
+
+    // 쓰면 사라지고, 예전 수업(older)은 다시 띄우지 않는다
+    await saveStudentNote(ctx, last.id, "- 썼어요", NOW);
+    expect(await lessonNeedingNote(ctx, NOW)).toBeNull();
+    expect(await myNote(ctx, older.id)).toBe("");
+
+    // 비우면 다시 보인다
+    await saveStudentNote(ctx, last.id, "", NOW);
+    expect((await lessonNeedingNote(ctx, NOW))?.id).toBe(last.id);
+  });
+
+  it("결석이면 안 보이고, 취소한 수업은 건너뛴다", async () => {
+    const { t, s, ctx } = await setup();
+    const prev = await lessonAt(t.id, s.id, at(8, 19 * 60));
+    const last = await lessonAt(t.id, s.id, at(9, 19 * 60));
+    await prisma.lesson.update({ where: { id: last.id }, data: { attendance: "ABSENT" } });
+    expect(await lessonNeedingNote(ctx, NOW)).toBeNull();
+
+    await prisma.lesson.update({ where: { id: last.id }, data: { attendance: null, canceledAt: NOW } });
+    expect((await lessonNeedingNote(ctx, NOW))?.id).toBe(prev.id);
+  });
+
+  it("다른 학생 수업과 노트는 보지 않는다", async () => {
+    const { t, s, ctx } = await setup();
+    const other = await newStudent(t.id);
+    const otherCtx = studentCtx(t.id, other.id);
+    const otherLesson = await lessonAt(t.id, other.id, at(9, 19 * 60));
+    expect(await lessonNeedingNote(ctx, NOW)).toBeNull();
+
+    // 내 수업과 같은 시간에 다른 학생이 노트를 써도 내 카드에는 영향이 없다
+    const mine = await lessonAt(t.id, s.id, at(9, 20 * 60));
+    await saveStudentNote(otherCtx, otherLesson.id, "- 남의 노트", NOW);
+    expect((await lessonNeedingNote(ctx, NOW))?.id).toBe(mine.id);
+
+    // 다른 선생님 범위에서도 안 보인다
+    const t2 = await newTeacher();
+    expect(await lessonNeedingNote(studentCtx(t2.id, s.id), NOW)).toBeNull();
   });
 });

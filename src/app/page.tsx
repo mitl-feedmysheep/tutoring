@@ -3,7 +3,8 @@ import { requireUser } from "@/lib/auth/session";
 import { studentDb, teacherDb } from "@/lib/db/scope";
 import { dailyCheer } from "@/lib/app/cheer";
 import { nextDayText, timeRangeText } from "@/lib/app/lesson-format";
-import { addMonths, clockText, daysInMonth, kstParts, monthKey, monthOf, parseMonthKey, type YearMonth } from "@/lib/schedule/kst";
+import { lessonNeedingNote } from "@/lib/lessons/notes";
+import { addMonths, clockText, dayLabel, daysInMonth, kstParts, monthKey, monthOf, parseMonthKey, type YearMonth } from "@/lib/schedule/kst";
 import { monthLessons, nextLesson, type StudentCtx } from "@/lib/schedule/student";
 import { listMonthSlots } from "@/lib/schedule/teacher";
 import { nextTeacherSlot } from "@/lib/meeting/meeting";
@@ -11,6 +12,7 @@ import { vapidPublicKey } from "@/lib/push/push";
 import { TabScreen } from "@/components/app/screens";
 import { NotificationPrompt } from "@/components/app/notification-prompt";
 import { NextLessonCard, type NextLessonView } from "@/components/app/lessons/next-lesson-card";
+import { NoteReminderCard } from "@/components/app/lessons/note-reminder-card";
 import { LessonCalendar, type CalendarLesson, type CalendarView } from "@/components/app/lessons/lesson-calendar";
 
 // 수업 탭. 앱을 열면 첫 화면 (APP-01, APP-02). 선생님·학생 공용
@@ -70,7 +72,7 @@ export default async function LessonTab({ searchParams }: { searchParams: Promis
   }
 
   const ctx: StudentCtx = { db: studentDb(claims.teacherId, claims.studentId), teacherId: claims.teacherId, studentId: claims.studentId };
-  const [next, lessons] = await Promise.all([nextLesson(ctx, now), monthLessons(ctx, ym)]);
+  const [next, lessons, noteLesson] = await Promise.all([nextLesson(ctx, now), monthLessons(ctx, ym), lessonNeedingNote(ctx, now)]);
 
   const nextView: NextLessonView | null = next && {
     id: next.id,
@@ -92,6 +94,7 @@ export default async function LessonTab({ searchParams }: { searchParams: Promis
       }
     >
       <NextLessonCard lesson={nextView} />
+      {noteLesson && <NoteReminderCard href={`/lessons/${noteLesson.id}`} label={`${dayLabel(noteLesson.startsAt)} ${clockText(noteLesson.startsAt)}`} />}
       {monthTitle}
       <LessonCalendar view={calendarView(ym, now, lessons.map((l) => ({ ...l, href: `/lessons/${l.id}` })))} />
       <NotificationPrompt publicKey={vapidPublicKey()} />
