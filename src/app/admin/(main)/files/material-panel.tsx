@@ -1,78 +1,58 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { ExternalLink, Search } from "lucide-react";
+import { ExternalLink, Pencil, Search, Trash2, X } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { askConfirm } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { deleteMaterialAction, setMaterialAccessAction, updateMaterialAction } from "@/app/admin/file-actions";
-import { DESCRIPTION_MAX, FILE_NAME_MAX } from "@/lib/files/rules";
+import { deleteMaterialAction, setMaterialAccessAction } from "@/app/admin/file-actions";
+import { MaterialFormModal } from "./material-form";
 
 export type PanelFile = { id: string; fileName: string; description: string | null; meta: string };
 export type PanelStudent = { id: string; name: string };
 
-// 자료실에서 자료를 누르면 오른쪽에 열리는 창 (FILE-03, 05): 열기·지우기, 제목·설명 고치기, 학생 검색해서 공유
-export function MaterialPanel({ file, students, shared, onDeleted }: { file: PanelFile; students: PanelStudent[]; shared: Record<string, string>; onDeleted: () => void }) {
+// 자료실 목록 오른쪽 칸 (FILE-03, 04): 고른 자료의 학생 리스트에서 바로 체크해서 공유한다.
+// 위에는 PDF 열기, 제목·설명 수정(모달), 지우기
+export function MaterialPanel({
+  file,
+  students,
+  shared,
+  onClose,
+}: {
+  file: PanelFile;
+  students: PanelStudent[];
+  shared: Record<string, string>;
+  onClose: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
   return (
-    <div className="grid gap-6">
-      <div className="flex flex-wrap gap-2">
-        <a
-          href={`/admin/files/${file.id}/view`}
-          target="_blank"
-          rel="noopener"
-          className="inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium hover:bg-accent"
-        >
-          <ExternalLink className="size-4" />
+    <div className="grid gap-4">
+      <div className="flex items-start gap-2">
+        <div className="grid min-w-0 flex-1 gap-0.5">
+          <h2 className="font-semibold break-all">{file.fileName}</h2>
+          <p className="text-xs text-muted-foreground tabular-nums">{file.meta}</p>
+        </div>
+        <button type="button" onClick={onClose} aria-label="닫기" className="shrink-0 rounded-md p-1 text-slate-500 hover:bg-slate-100">
+          <X className="size-4" />
+        </button>
+      </div>
+      {file.description && <p className="line-clamp-3 rounded-md bg-slate-50 px-3 py-2 text-xs whitespace-pre-line text-muted-foreground">{file.description}</p>}
+      <div className="flex flex-wrap gap-1.5">
+        <a href={`/admin/files/${file.id}/view`} target="_blank" rel="noopener" className="inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs font-medium hover:bg-accent">
+          <ExternalLink className="size-3.5" />
           PDF 열기
         </a>
-        <DeleteMaterialButton fileId={file.id} name={file.fileName} onDeleted={onDeleted} />
-      </div>
-
-      <section className="grid gap-2">
-        <h3 className="font-semibold">제목과 설명</h3>
-        <InfoEditor key={`${file.id}:${file.fileName}:${file.description}`} file={file} />
-      </section>
-
-      <section className="grid gap-2">
-        <h3 className="font-semibold">공유할 학생</h3>
-        <AccessEditor key={`${file.id}:${Object.keys(shared).sort().join(",")}`} fileId={file.id} students={students} shared={shared} />
-      </section>
-    </div>
-  );
-}
-
-function InfoEditor({ file }: { file: PanelFile }) {
-  const [title, setTitle] = useState(file.fileName);
-  const [description, setDescription] = useState(file.description ?? "");
-  const [pending, start] = useTransition();
-  const changed = title.trim() !== file.fileName || description.trim() !== (file.description ?? "");
-
-  const save = () =>
-    start(async () => {
-      const res = await updateMaterialAction(file.id, title, description);
-      if (!res.ok) return void toast.error(res.error);
-      toast.success("제목과 설명을 저장했어요");
-    });
-
-  return (
-    <div className="grid gap-2">
-      <Input value={title} maxLength={FILE_NAME_MAX} onChange={(e) => setTitle(e.target.value)} aria-label="제목" placeholder="제목" />
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        maxLength={DESCRIPTION_MAX}
-        rows={4}
-        aria-label="학생에게 보일 설명"
-        placeholder={"학생에게 같이 보여 줄 설명이나 참고 링크를 적어요\n예: 3과까지 읽고 오세요. 발음 참고 https://..."}
-        className="w-full resize-y rounded-md border bg-background px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
-      />
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs text-muted-foreground">https:// 주소는 학생 화면에서 눌러서 열 수 있어요.</span>
-        <Button type="button" size="sm" disabled={!changed || !title.trim() || pending} onClick={save} className="shrink-0">
-          {pending ? "저장하는 중..." : "저장"}
+        <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setEditing(true)}>
+          <Pencil className="size-3.5" />
+          수정
         </Button>
+        <DeleteMaterialButton fileId={file.id} name={file.fileName} onDeleted={onClose} />
       </div>
+
+      <AccessEditor key={`${file.id}:${Object.keys(shared).sort().join(",")}`} fileId={file.id} students={students} shared={shared} />
+
+      {editing && <MaterialFormModal edit={file} onClose={() => setEditing(false)} />}
     </div>
   );
 }
@@ -133,7 +113,7 @@ function AccessEditor({ fileId, students, shared }: { fileId: string; students: 
         {shown.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-muted-foreground">&quot;{query.trim()}&quot; 학생이 없어요.</p>
         ) : (
-          <ul className="max-h-[50dvh] divide-y overflow-y-auto">
+          <ul className="max-h-[60dvh] divide-y overflow-y-auto">
             {shown.map((s) => (
               <li key={s.id}>
                 <label className="flex cursor-pointer items-center gap-3 px-4 py-3 text-sm">
@@ -146,8 +126,8 @@ function AccessEditor({ fileId, students, shared }: { fileId: string; students: 
           </ul>
         )}
       </div>
-      <div className="flex justify-end">
-        <Button type="button" disabled={!changed || pending} onClick={save}>
+      <div>
+        <Button type="button" disabled={!changed || pending} onClick={save} className="w-full">
           {pending ? "저장하는 중..." : "공유 저장"}
         </Button>
       </div>
@@ -161,7 +141,8 @@ function DeleteMaterialButton({ fileId, name, onDeleted }: { fileId: string; nam
     <Button
       type="button"
       variant="outline"
-      className="text-red-700 hover:text-red-700"
+      size="sm"
+      className="h-8 text-xs text-red-700 hover:text-red-700"
       disabled={pending}
       onClick={async () => {
         if (!(await askConfirm({ title: `"${name}"을(를) 지울까요?`, description: "공유한 학생에게서도 사라져요.", confirmLabel: "지우기", destructive: true }))) return;
@@ -173,6 +154,7 @@ function DeleteMaterialButton({ fileId, name, onDeleted }: { fileId: string; nam
         });
       }}
     >
+      <Trash2 className="size-3.5" />
       지우기
     </Button>
   );
