@@ -377,21 +377,23 @@ function SlotDetail({ slot, onSelect }: { slot: CalendarSlot; onSelect: (s: Sele
         <h4 className="text-sm font-medium">{slot.past ? `수업한 학생 ${n}명` : `예약한 학생 ${n}명`}</h4>
         {n > 0 && (
           <p className="text-xs text-muted-foreground">
-            이름을 누르면 노트를 쓰고 지난 노트를 봐요.{slot.past && " 완료·결석을 체크해요. 다시 누르면 체크가 풀려요."}
+            학생을 누르면 노트를 쓰고 지난 노트를 봐요.{slot.past && " 완료·결석을 체크해요. 다시 누르면 체크가 풀려요."}
           </p>
         )}
         {n === 0 ? (
           <p className="text-sm text-muted-foreground">아직 예약한 학생이 없어요.</p>
         ) : (
-          <ul className="grid gap-1">
+          <ul className="grid gap-1.5">
             {slot.students.map((s) => (
-              <li key={s.lessonId} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm">
-                <span className="grid min-w-0">
-                  <StudentNoteButton lessonId={s.lessonId} studentId={s.studentId} name={s.name} label={`${dateLabel(slot.date)} ${timeRange(slot)}`} started={slot.past}>
-                    {s.name}
-                  </StudentNoteButton>
-                  {s.fixed && <span className="text-xs text-muted-foreground">고정 일정</span>}
-                </span>
+              <li key={s.lessonId} className="flex items-center gap-2">
+                <StudentNoteButton
+                  lessonId={s.lessonId}
+                  studentId={s.studentId}
+                  name={s.name}
+                  sub={s.fixed ? "고정 일정" : undefined}
+                  label={`${dateLabel(slot.date)} ${timeRange(slot)}`}
+                  started={slot.past}
+                />
                 {slot.past && <AttendanceToggle lessonId={s.lessonId} value={s.attendance} name={s.name} />}
               </li>
             ))}
