@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { dateKey, dayLabel, parseDateKey } from "@/lib/schedule/kst";
 import { minutesText } from "@/lib/study/rules";
-import { dayEntries, editableDates, studyOwnerOf, toDbDate, todayKey } from "@/lib/study/study";
+import { canEditDate, dayEntries, studyOwnerOf, toDbDate, todayKey } from "@/lib/study/study";
 import { SubScreen } from "@/components/app/screens";
 import { Empty, Rule } from "@/components/app/ui";
 import { StudyDay } from "@/components/app/study/study-day";
@@ -20,8 +20,9 @@ export default async function StudyDayPage({ params }: { params: Promise<{ date:
   if (date > todayKey(now)) notFound();
 
   const { claims } = await requireUser();
-  const entries = await dayEntries(studyOwnerOf(claims), date);
-  const locked = !editableDates(now).includes(date);
+  const owner = studyOwnerOf(claims);
+  const entries = await dayEntries(owner, date);
+  const locked = !canEditDate(owner, date, now);
   const total = entries.reduce((s, e) => s + e.minutes, 0);
 
   return (

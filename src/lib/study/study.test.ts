@@ -9,6 +9,7 @@ import { PHOTO_MAX, PHOTO_MAX_BYTES } from "./rules";
 import {
   dayEntries,
   deleteStudyLog,
+  canEditDate,
   editableDates,
   monthEntries,
   prepareUploads,
@@ -105,6 +106,22 @@ describe("기록 쓰기 (STUDY-01, 02)", () => {
     await err(saveStudyLog(me, input({ id: old.id }), NOW), "잘못된 요청이에요");
     await err(deleteStudyLog(me, old.id, NOW), "어제 기록까지만 고칠 수 있어요");
     expect((await rawLogs(t.id))[0]).toMatchObject({ minutes: 30, deletedAt: null });
+  });
+
+  it("임시: 선생님 본인 기록만 2026-11-01부터 쓰고 고치고 지운다. 학생은 그대로 오늘·어제만", async () => {
+    const { t, me, teacher } = await setup();
+    const old = await saveStudyLog(teacher, input({ date: "2026-11-01", minutes: 40 }), NOW);
+    await saveStudyLog(teacher, input({ id: old.id, date: "2026-11-01", minutes: 50 }), NOW);
+    await err(saveStudyLog(teacher, input({ date: "2026-10-31" }), NOW), "어제 기록까지만 고칠 수 있어요");
+    await err(saveStudyLog(teacher, input({ date: "2026-12-11" }), NOW), "어제 기록까지만 고칠 수 있어요");
+    expect((await dayEntries(teacher, "2026-11-01")).map((e) => e.minutes)).toEqual([50]);
+    await deleteStudyLog(teacher, old.id, NOW);
+    expect(await dayEntries(teacher, "2026-11-01")).toEqual([]);
+
+    await err(saveStudyLog(me, input({ date: "2026-11-01" }), NOW), "어제 기록까지만 고칠 수 있어요");
+    expect(canEditDate(me, "2026-11-01", NOW)).toBe(false);
+    expect(canEditDate(teacher, "2026-11-01", NOW)).toBe(true);
+    expect((await rawLogs(t.id)).filter((l) => l.deletedAt === null)).toEqual([]);
   });
 
   it("공부 시간은 5분 단위, 12시간까지, 하루 24시간까지", async () => {

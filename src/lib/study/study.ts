@@ -39,6 +39,18 @@ export function editableDates(now = new Date()) {
   return [todayKey(now), todayKey(new Date(now.getTime() - DAY_MS))];
 }
 
+/**
+ * 임시 (2026-11-14): 선생님 본인 기록(STUDY-08)은 이날부터 쓰고 고칠 수 있다. 앱을 쓰기 전 공부 기록을 옮겨 넣으려고 연다.
+ * 다 넣으면 이 변경(커밋)을 되돌려 오늘·어제만 쓰는 규칙(STUDY-02)으로 돌아간다
+ */
+const TEACHER_BACKFILL_FROM = "2026-11-01";
+
+/** 이 주인이 그날 기록을 쓰고 고칠 수 있는지 */
+export function canEditDate(owner: Pick<StudyOwner, "studentId">, date: string, now = new Date()) {
+  if (editableDates(now).includes(date)) return true;
+  return owner.studentId === null && date >= TEACHER_BACKFILL_FROM && date <= todayKey(now);
+}
+
 export const toDbDate = (key: string) => new Date(`${key}T00:00:00Z`);
 export const fromDbDate = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -113,8 +125,8 @@ const saveInput = z
 
 export type SaveStudyInput = z.infer<typeof saveInput>;
 
-function checkEditable(date: string, now: Date) {
-  if (!editableDates(now).includes(date)) throw new ScheduleError("어제 기록까지만 고칠 수 있어요");
+function checkEditable(owner: StudyOwner, date: string, now: Date) {
+  if (!canEditDate(owner, date, now)) throw new ScheduleError("어제 기록까지만 고칠 수 있어요");
 }
 
 function checkMinutes(minutes: number) {
@@ -127,7 +139,7 @@ export async function saveStudyLog(owner: StudyOwner, raw: unknown, now = new Da
   const parsed = saveInput.safeParse(raw);
   if (!parsed.success) throw new ScheduleError("잘못된 요청이에요");
   const input = parsed.data;
-  checkEditable(input.date, now);
+  checkEditable(owner, input.date, now);
   checkMinutes(input.minutes);
   const memo = cleanNote(input.memo);
   if (memo.length > NOTE_MAX) throw new ScheduleError(`내용은 ${NOTE_MAX.toLocaleString()}자까지 쓸 수 있어요`);
@@ -206,7 +218,7 @@ export async function deleteStudyLog(owner: StudyOwner, id: unknown, now = new D
   if (typeof id !== "string" || !ID.test(id)) throw new ScheduleError("잘못된 요청이에요");
   const log = await owner.db.studyLog.findFirst({ where: { id, studentId: owner.studentId }, select: { id: true, studyDate: true } });
   if (!log) throw new ScheduleError("없는 기록이에요");
-  checkEditable(fromDbDate(log.studyDate), now);
+  checkEditable(owner, fromDbDate(log.studyDate), now);
   await owner.db.$transaction(async (tx) => {
     await tx.file.updateMany({ where: { studyLogId: log.id }, data: { deletedAt: now } });
     await tx.studyLog.updateMany({ where: { id: log.id }, data: { deletedAt: now } });
