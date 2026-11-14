@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { createPostAction, updatePostAction } from "@/app/board-actions";
 import { goBack, replaceTo } from "@/components/app/nav";
 import { cleanText, CONTENT_MAX, TITLE_MAX } from "@/lib/board/rules";

@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { bookSlotAction, moveLessonAction } from "@/app/lesson-actions";
 import { goBackSteps } from "@/components/app/nav";
 import { Card, Chip, GroupTitle, Row } from "@/components/app/ui";

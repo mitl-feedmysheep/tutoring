@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { prepareMaterialUploadAction, saveMaterialAction } from "@/app/admin/file-actions";
 import { MATERIAL_MAX_BYTES, PDF_TYPE, sizeText } from "@/lib/files/rules";

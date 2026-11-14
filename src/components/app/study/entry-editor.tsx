@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { replaceTo } from "@/components/app/nav";
 import { Camera, Loader2, Minus, Plus, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { deleteStudyLogAction, prepareStudyUploadsAction, saveStudyLogAction } from "@/app/study-actions";
 import { useBullets } from "@/components/notes/use-bullets";
 import { useNoteDraft } from "@/components/notes/use-note-draft";
@@ -28,7 +30,7 @@ let seq = 0;
 
 /**
  * 공부 기록 한 건 (STUDY-01, 07, APP-03, 14). entry가 없으면 새 기록.
- * locked: 그저께부터는 칸을 잠그고 저장을 끈다. 저장하면 서버가 화면을 새로 그리고, 부모가 key를 바꿔 이 칸을 새로 만든다
+ * locked: 그저께부터는 칸을 잠그고 저장을 끈다. 저장하면 공부 탭으로 돌아간다
  */
 export function EntryEditor({
   date,
@@ -55,6 +57,7 @@ export function EntryEditor({
   const [viewing, setViewing] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
+  const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const draft = useNoteDraft(draftKey, memo, savedMemo, setMemo, "저장하지 않은 기록을 불러왔어요", !locked);
 
@@ -120,6 +123,8 @@ export function EntryEditor({
       draft.clear();
       toast.success("공부 기록을 저장했어요");
       onCreated?.();
+      // 저장하면 공부 탭으로 돌아간다
+      replaceTo(router, "/study");
     });
 
   const remove = () =>

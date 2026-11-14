@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { applyWeeklyChangeAction, planWeeklyChangeAction } from "@/app/lesson-actions";
 import { goBack } from "@/components/app/nav";
 import { Card, GroupTitle, Row } from "@/components/app/ui";

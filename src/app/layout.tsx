@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { NavProgress } from "@/components/app/nav-progress";
 import { NavTracker } from "@/components/app/nav";
 import { ServiceWorkerRegister } from "@/components/app/service-worker";
 import "./globals.css";
@@ -52,6 +53,7 @@ export default function RootLayout({
       </head>
       <body className={`${geistMono.variable} antialiased`}>
         <NavTracker />
+        <NavProgress />
         <ServiceWorkerRegister />
         {children}
         <Toaster position="top-center" richColors />

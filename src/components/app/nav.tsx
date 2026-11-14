@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { nextDepth, type NavKind } from "@/lib/app/nav-depth";
+import { startNav } from "./nav-progress";
 
 // 앱 안에서 쌓은 화면 수. 새로 고침하거나 앱을 새로 열면 0부터 다시 센다
 let depth = 0;
@@ -66,6 +67,7 @@ type Router = ReturnType<typeof useRouter>;
 
 /** 뒤로 가기. 앱 안에서 쌓은 화면이 없으면 fallback 탭으로 (APP-08) */
 export function goBack(router: Router, fallback: string) {
+  startNav();
   if (depth > 0) {
     router.back();
   } else {
@@ -77,6 +79,7 @@ export function goBack(router: Router, fallback: string) {
 /** n 화면 뒤로. 앱 안에서 그만큼 쌓여 있지 않으면 otherwise로 바꾼다 (기록 안 쌓음) */
 export function goBackSteps(router: Router, n: number, otherwise: string) {
   if (depth >= n) {
+    startNav();
     popSteps = n;
     window.history.go(-n);
   } else {
@@ -87,6 +90,7 @@ export function goBackSteps(router: Router, n: number, otherwise: string) {
 /** 기록을 쌓지 않고 지금 화면을 다른 화면으로 바꾼다 (같은 탭 안 보기 전환, 옮긴 뒤 새 수업 화면 등) */
 export function replaceTo(router: Router, href: string) {
   if (href.split("?")[0] !== window.location.pathname) markReplace();
+  if (href !== window.location.pathname + window.location.search) startNav();
   router.replace(href);
 }
 

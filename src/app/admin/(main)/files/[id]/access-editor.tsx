@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
+import { startNav } from "@/components/app/nav-progress";
 import { Button } from "@/components/ui/button";
 import { deleteMaterialAction, setMaterialAccessAction } from "@/app/admin/file-actions";
 
@@ -79,6 +80,7 @@ export function DeleteMaterialButton({ fileId, name }: { fileId: string; name: s
           const res = await deleteMaterialAction(fileId);
           if (!res.ok) return void toast.error(res.error);
           toast.success("자료를 지웠어요");
+          startNav();
           router.replace("/admin/files");
         });
       }}

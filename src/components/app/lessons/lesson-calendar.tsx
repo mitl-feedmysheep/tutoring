@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ReplaceLink } from "@/components/app/nav";
+import { startNav } from "@/components/app/nav-progress";
 import { BottomSheet } from "./bottom-sheet";
 
 export type CalendarLesson = { id: string; time: string; kind: "fixed" | "booked"; past: boolean };
@@ -125,6 +126,7 @@ export function LessonCalendar({ view }: { view: CalendarView }) {
               type="button"
               onClick={() => {
                 setPicking(null);
+                startNav();
                 router.push(`/lessons/${l.id}`);
               }}
               className="flex items-center justify-between rounded-xl border border-border px-4 py-3 text-left text-[15px] tabular-nums hover:bg-accent/50"

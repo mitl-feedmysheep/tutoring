@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowUp } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { addCommentAction, deleteCommentAction } from "@/app/board-actions";
 import { BottomSheet } from "@/components/app/lessons/bottom-sheet";
 import { cleanText, COMMENT_MAX } from "@/lib/board/rules";

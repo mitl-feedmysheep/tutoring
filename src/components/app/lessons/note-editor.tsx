@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { saveMyNoteAction } from "@/app/lesson-actions";
 import { useBullets } from "@/components/notes/use-bullets";
 import { useNoteDraft } from "@/components/notes/use-note-draft";

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { pushStatusAction, savePushAction } from "@/app/push-actions";
 import { currentSubscription, enablePush, markPrompted, pushSupport, wasPrompted } from "@/lib/app/push-client";
 import { BottomSheet } from "./lessons/bottom-sheet";
