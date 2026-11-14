@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Image as ImageIcon, PenLine } from "lucide-react";
+import { Image as ImageIcon, Lightbulb, PenLine } from "lucide-react";
 import { requireUser } from "@/lib/auth/session";
 import { addMonths, dateKey, dayLabel, daysInMonth, kstParts, monthKey, monthOf, parseMonthKey } from "@/lib/schedule/kst";
 import { minutesText } from "@/lib/study/rules";
@@ -11,7 +11,7 @@ import { StudyCalendar } from "@/components/app/study/study-calendar";
 
 export const metadata: Metadata = { title: "공부" };
 
-// 공부 탭 (APP-03). 위에서부터 합계, 오늘 기록하기, 달력, 그 달 기록 목록.
+// 공부 탭 (APP-03). 위에서부터 합계, 오늘 기록하기, 달력, 그 달 기록 목록 (내용과 오늘의 피드백 두 줄씩).
 // 학생은 내 기록, 선생님은 본인 기록 (STUDY-08, APP-05. 학생에게 보이지 않는다)
 export default async function StudyTab({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const { claims } = await requireUser();
@@ -86,6 +86,7 @@ function DayRow({ date, list }: { date: string; list: StudyEntry[] }) {
   const minutes = list.reduce((s, e) => s + e.minutes, 0);
   const photos = list.reduce((s, e) => s + e.photos.length, 0);
   const memo = list.map((e) => e.memo).filter(Boolean).join("\n");
+  const feedback = list.map((e) => e.feedback).filter(Boolean).join("\n");
   return (
     <Link href={`/study/${date}`} className="flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-accent/50">
       <div className="flex items-center justify-between gap-3 text-[15px] tabular-nums">
@@ -101,6 +102,13 @@ function DayRow({ date, list }: { date: string; list: StudyEntry[] }) {
         </span>
       </div>
       {memo && <p className="line-clamp-2 text-[13px] leading-relaxed whitespace-pre-line text-muted-foreground">{memo}</p>}
+      {/* 오늘의 피드백 (STUDY-09). 복기할 때 눈에 띄게 살짝 색을 준다 */}
+      {feedback && (
+        <div className="flex gap-1.5 rounded-lg bg-accent/60 px-2.5 py-1.5 text-[13px] leading-relaxed">
+          <Lightbulb className="mt-[3px] size-3.5 shrink-0 text-primary" aria-label="오늘의 피드백" />
+          <p className="line-clamp-2 min-w-0 whitespace-pre-line text-foreground/80">{feedback}</p>
+        </div>
+      )}
     </Link>
   );
 }
