@@ -75,6 +75,13 @@ export async function meetingSettings(db: ScopedDb, teacherId: string) {
   };
 }
 
+/** MEET-08: 학생이 "들어가기"로 들어올 수 있게 준비됐는지 (고정 링크가 있거나, 구글 Meet 자동 + 구글 계정 연결) */
+export function meetingReady(settings: { provider: MeetingProvider | null; fixedUrl: string | null; google: unknown }) {
+  if (settings.provider === "FIXED_LINK") return Boolean(settings.fixedUrl);
+  if (settings.provider === "GOOGLE_MEET") return Boolean(settings.google);
+  return false;
+}
+
 /** 고정 링크: https 주소만. 반환값은 저장할 값 (빈 칸이면 null) */
 export function parseFixedUrl(input: string): string | null {
   const v = input.trim();

@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { MeetingSetupPrompt } from "./meeting-setup-prompt";
 import { Sidebar } from "./sidebar";
 
 // 1024px 이상은 왼쪽 고정 사이드바, 그보다 좁으면(폰, 태블릿 세로) 왼쪽에서 열리는 서랍.
 // 사이드바는 sticky가 아니라 fixed로 화면 위아래에 붙인다. 아이패드 크롬·사파리는 스크롤할 때 주소창이 줄면서
 // 화면 높이가 바뀌는데, sticky + h-dvh는 이때 사이드바가 같이 올라가고 아래가 비었다
-export function AdminShell({ teacherName, isAdmin, children }: { teacherName: string; isAdmin: boolean; children: React.ReactNode }) {
+export function AdminShell({ teacherName, isAdmin, meetingReady, children }: { teacherName: string; isAdmin: boolean; meetingReady: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="flex min-h-dvh bg-slate-50">
@@ -34,6 +35,7 @@ export function AdminShell({ teacherName, isAdmin, children }: { teacherName: st
           <div className="mx-auto max-w-7xl p-4 sm:p-6">{children}</div>
         </main>
       </div>
+      {!meetingReady && <MeetingSetupPrompt />}
     </div>
   );
 }

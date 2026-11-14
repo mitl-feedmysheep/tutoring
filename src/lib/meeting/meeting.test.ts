@@ -11,6 +11,7 @@ import {
   enterAsStudent,
   enterAsTeacher,
   MeetingError,
+  meetingReady,
   nextTeacherSlot,
   resetTokenCacheForTest,
   saveGoogleConnection,
@@ -342,5 +343,17 @@ describe("선생님 간 격리", () => {
     const B = await tenant();
     await disconnectGoogle(A.db);
     expect(await B.db.teacherMeetingAccount.count()).toBe(1);
+  });
+});
+
+describe("화상 수업 준비 (MEET-08)", () => {
+  it("고정 링크가 있거나, 구글 Meet 자동에 구글 계정이 연결돼 있어야 준비된 것", () => {
+    const google = { email: "t@example.com", connectedAt: new Date() };
+    expect(meetingReady({ provider: null, fixedUrl: null, google: null })).toBe(false);
+    expect(meetingReady({ provider: null, fixedUrl: "https://zoom.us/j/1", google })).toBe(false);
+    expect(meetingReady({ provider: "FIXED_LINK", fixedUrl: null, google })).toBe(false);
+    expect(meetingReady({ provider: "FIXED_LINK", fixedUrl: "https://zoom.us/j/1", google: null })).toBe(true);
+    expect(meetingReady({ provider: "GOOGLE_MEET", fixedUrl: null, google: null })).toBe(false);
+    expect(meetingReady({ provider: "GOOGLE_MEET", fixedUrl: null, google })).toBe(true);
   });
 });

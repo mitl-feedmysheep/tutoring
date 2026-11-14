@@ -12,7 +12,8 @@ export async function saveMeetingSettingsAction(_: MeetingSettingsState, form: F
   const { db, teacherId } = await requireTeacher();
   try {
     await saveMeetingSettings(db, teacherId, { provider: String(form.get("provider") ?? ""), fixedUrl: String(form.get("fixedUrl") ?? "") });
-    revalidatePath("/admin/meeting");
+    // 어드민 레이아웃의 준비 여부(MEET-08)도 다시 계산한다
+    revalidatePath("/admin", "layout");
     return { ok: true };
   } catch (e) {
     if (e instanceof MeetingSettingsError) return { error: e.message };
@@ -23,5 +24,5 @@ export async function saveMeetingSettingsAction(_: MeetingSettingsState, form: F
 export async function disconnectGoogleAction() {
   const { db } = await requireTeacher();
   await disconnectGoogle(db);
-  revalidatePath("/admin/meeting");
+  revalidatePath("/admin", "layout");
 }
