@@ -3,6 +3,7 @@ import { requireTeacher } from "@/lib/auth/session";
 import { googleMeetConfigured, meetingSettings } from "@/lib/meeting/meeting";
 import { Button } from "@/components/ui/button";
 import { disconnectGoogleAction } from "@/app/admin/meeting-actions";
+import { GoogleConnectGuide } from "./google-connect-guide";
 import { MeetingSettingsForm } from "./settings-form";
 
 export const metadata: Metadata = { title: "화상 수업" };
@@ -57,15 +58,10 @@ export default async function MeetingPage({ searchParams }: { searchParams: Prom
             <>
               <p className="text-sm">Google Meet 자동을 쓰려면 수업을 진행할 구글 계정을 연결해 주세요.</p>
               {configured ? (
-                <a href="/api/google/connect" className="inline-flex h-9 w-fit items-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700">
-                  구글 계정 연결
-                </a>
+                <GoogleConnectGuide />
               ) : (
                 <p className="text-sm text-red-700">서버 설정이 아직 안 되어 있어요 (MEETING_TOKEN_KEY).</p>
               )}
-              <p className="text-xs text-muted-foreground">
-                &quot;Google에서 확인하지 않은 앱&quot; 화면이 나오면 &quot;고급&quot; → &quot;Tutoring(으)로 이동&quot;을 누르고, 캘린더 권한을 체크해 허용해 주세요.
-              </p>
             </>
           )}
         </div>

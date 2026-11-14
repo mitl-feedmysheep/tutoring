@@ -24,7 +24,7 @@ export function MeetingSetupPrompt() {
             화상 수업을 먼저 준비해 주세요
           </h2>
           <p className="text-sm text-muted-foreground">
-            Google Meet을 연결하거나 고정 링크를 넣어야 학생이 수업에 들어올 수 있어요. 준비를 마치면 일정과 학생을 관리할 수 있어요.
+            <b className="font-semibold text-foreground">Google Meet</b>을 연결하거나 <b className="font-semibold text-foreground">고정 링크</b>를 넣어야 학생이 수업에 들어올 수 있어요. 준비를 마치면 일정과 학생을 관리할 수 있어요.
           </p>
         </div>
         <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
