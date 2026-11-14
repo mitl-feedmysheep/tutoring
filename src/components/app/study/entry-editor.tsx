@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { PhotoViewer } from "./photo-viewer";
 import { resizePhoto } from "./resize";
 
-export type EntryView = { id: string; minutes: number; memo: string; photos: { id: string; url: string }[] };
+export type EntryView = { id: string; minutes: number; memo: string; feedback: string; photos: { id: string; url: string }[] };
 
 type Photo =
   | { key: string; kind: "saved"; id: string; url: string }
@@ -29,7 +29,7 @@ const cta = "flex h-12 items-center justify-center rounded-xl border-[1.5px] tex
 let seq = 0;
 
 /**
- * 공부 기록 한 건 (STUDY-01, 07, APP-03, 14). entry가 없으면 새 기록.
+ * 공부 기록 한 건 (STUDY-01, 07, 09, APP-03, 14). entry가 없으면 새 기록.
  * locked: 그저께부터는 칸을 잠그고 저장을 끈다. 저장하면 공부 탭으로 돌아간다
  */
 export function EntryEditor({
@@ -48,11 +48,13 @@ export function EntryEditor({
   onCreated?: () => void;
 }) {
   const savedMemo = entry?.memo ?? "";
+  const savedFeedback = entry?.feedback ?? "";
   const savedMinutes = entry?.minutes ?? NEW_MINUTES;
   const savedPhotos = entry?.photos.map((p) => p.id).join(",") ?? "";
 
   const [minutes, setMinutes] = useState(savedMinutes);
   const { value: memo, setValue: setMemo, props: memoProps } = useBullets(savedMemo);
+  const { value: feedback, setValue: setFeedback, props: feedbackProps } = useBullets(savedFeedback);
   const [photos, setPhotos] = useState<Photo[]>(() => entry?.photos.map((p) => ({ key: p.id, kind: "saved", ...p })) ?? []);
   const [viewing, setViewing] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -60,6 +62,7 @@ export function EntryEditor({
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const draft = useNoteDraft(draftKey, memo, savedMemo, setMemo, "저장하지 않은 기록을 불러왔어요", !locked);
+  const feedbackDraft = useNoteDraft(`${draftKey}:feedback`, feedback, savedFeedback, setFeedback, "저장하지 않은 피드백을 불러왔어요", !locked);
 
   // 미리 보기로 만든 주소는 칸이 없어질 때 정리한다
   const previews = useRef<string[]>([]);
@@ -67,7 +70,7 @@ export function EntryEditor({
 
   const uploading = photos.some((p) => p.kind === "upload" && p.token === null);
   const photoIds = photos.map((p) => (p.kind === "saved" ? p.id : p.key)).join(",");
-  const changed = entry === null || minutes !== savedMinutes || cleanNote(memo) !== savedMemo || photoIds !== savedPhotos;
+  const changed = entry === null || minutes !== savedMinutes || cleanNote(memo) !== savedMemo || cleanNote(feedback) !== savedFeedback || photoIds !== savedPhotos;
   const busy = pending || uploading;
 
   const step = (delta: number) => setMinutes((m) => Math.min(ENTRY_MAX_MINUTES, Math.max(0, m + delta)));
@@ -117,10 +120,12 @@ export function EntryEditor({
         date,
         minutes,
         memo: cleanNote(memo),
+        feedback: cleanNote(feedback),
         photos: photos.map((p) => (p.kind === "saved" ? { fileId: p.id } : { token: p.token })),
       });
       if (!res.ok) return void toast.error(res.error);
       draft.clear();
+      feedbackDraft.clear();
       toast.success("공부 기록을 저장했어요");
       onCreated?.();
       // 저장하면 공부 탭으로 돌아간다
@@ -133,6 +138,7 @@ export function EntryEditor({
       const res = await deleteStudyLogAction(entry.id);
       if (!res.ok) return void toast.error(res.error);
       draft.clear();
+      feedbackDraft.clear();
       setConfirmDelete(false);
       toast.success("공부 기록을 지웠어요");
     });
@@ -197,6 +203,24 @@ export function EntryEditor({
           className="min-h-28 w-full resize-none rounded-xl bg-background px-4 py-3 text-base leading-relaxed shadow-[0_0_0_1px_var(--color-border)] outline-none placeholder:text-muted-foreground focus:shadow-[0_0_0_2px_var(--color-primary)] disabled:opacity-70"
         />
       </div>
+
+      {/* 오늘의 피드백 (STUDY-09). 복기할 때 다시 볼 것. 내용 칸처럼 글머리 */}
+      {(savedFeedback !== "" || !locked) && (
+        <div className="flex flex-col gap-2">
+          <label htmlFor={`feedback-${draftKey}`} className="text-[13px] font-semibold text-muted-foreground">
+            오늘의 피드백
+          </label>
+          <textarea
+            id={`feedback-${draftKey}`}
+            {...feedbackProps}
+            disabled={locked}
+            maxLength={NOTE_MAX}
+            rows={3}
+            placeholder="다음에 고칠 점, 기억할 표현을 적어요"
+            className="min-h-24 w-full resize-none rounded-xl bg-background px-4 py-3 text-base leading-relaxed shadow-[0_0_0_1px_var(--color-border)] outline-none placeholder:text-muted-foreground focus:shadow-[0_0_0_2px_var(--color-primary)] disabled:opacity-70"
+          />
+        </div>
+      )}
 
       {/* 사진 (STUDY-07) */}
       {(photos.length > 0 || !locked) && (

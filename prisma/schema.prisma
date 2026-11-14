@@ -328,6 +328,8 @@ model StudyLog {
   /// 5분 단위
   minutes   Int       @db.SmallInt
   memo      String?   @db.Text
+  /// 오늘의 피드백 (STUDY-09). 복기할 때 볼 것
+  feedback  String?   @db.Text
   createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
   deletedAt DateTime? @map("deleted_at") @db.DateTime(3)

@@ -119,6 +119,8 @@ const saveInput = z
     date: z.string().regex(DATE),
     minutes: z.number().int(),
     memo: z.string(),
+    // 앞 버전 화면이 보내는 요청에는 없다
+    feedback: z.string().default(""),
     photos: z.array(photoInput).max(PHOTO_MAX),
   })
   .strict();
@@ -134,7 +136,7 @@ function checkMinutes(minutes: number) {
   if (minutes % MINUTE_STEP !== 0 || minutes > ENTRY_MAX_MINUTES) throw new ScheduleError("공부 시간은 5분 단위로 12시간까지 적을 수 있어요");
 }
 
-/** STUDY-01, 02, 07: 기록 저장. id가 없으면 새로 만든다. photos는 보여 줄 순서대로 (남길 사진 id 또는 새로 올린 사진 표) */
+/** STUDY-01, 02, 07, 09: 기록 저장. id가 없으면 새로 만든다. photos는 보여 줄 순서대로 (남길 사진 id 또는 새로 올린 사진 표) */
 export async function saveStudyLog(owner: StudyOwner, raw: unknown, now = new Date(), storage: Storage = r2): Promise<{ id: string }> {
   const parsed = saveInput.safeParse(raw);
   if (!parsed.success) throw new ScheduleError("잘못된 요청이에요");
@@ -143,6 +145,8 @@ export async function saveStudyLog(owner: StudyOwner, raw: unknown, now = new Da
   checkMinutes(input.minutes);
   const memo = cleanNote(input.memo);
   if (memo.length > NOTE_MAX) throw new ScheduleError(`내용은 ${NOTE_MAX.toLocaleString()}자까지 쓸 수 있어요`);
+  const feedback = cleanNote(input.feedback);
+  if (feedback.length > NOTE_MAX) throw new ScheduleError(`피드백은 ${NOTE_MAX.toLocaleString()}자까지 쓸 수 있어요`);
 
   // 새 사진: 표 확인 → R2에 실제로 올라갔는지, 형식·크기 확인
   const photos = await Promise.all(
@@ -168,11 +172,11 @@ export async function saveStudyLog(owner: StudyOwner, raw: unknown, now = new Da
         if (!log) throw new ScheduleError("없는 기록이에요");
         // 날짜는 바꾸지 않는다. 그저께 기록을 오늘 날짜로 보내 고치는 것도 막힌다
         if (fromDbDate(log.studyDate) !== input.date) throw new ScheduleError("잘못된 요청이에요");
-        await tx.studyLog.updateMany({ where: { id: log.id }, data: { minutes: input.minutes, memo: memo || null } });
+        await tx.studyLog.updateMany({ where: { id: log.id }, data: { minutes: input.minutes, memo: memo || null, feedback: feedback || null } });
         logId = log.id;
       } else {
         // teacher_id(학생이면 student_id도)는 범위 계층이 채운다
-        const log = await tx.studyLog.create({ data: { studentId, studyDate, minutes: input.minutes, memo: memo || null } as never, select: { id: true } });
+        const log = await tx.studyLog.create({ data: { studentId, studyDate, minutes: input.minutes, memo: memo || null, feedback: feedback || null } as never, select: { id: true } });
         logId = log.id;
       }
 
@@ -232,12 +236,13 @@ const logSelect = {
   studyDate: true,
   minutes: true,
   memo: true,
+  feedback: true,
   photos: { select: { id: true, r2Key: true }, orderBy: { sortOrder: "asc" } },
 } as const;
 
-export type StudyEntry = { id: string; date: string; minutes: number; memo: string; photos: { id: string; url: string }[] };
+export type StudyEntry = { id: string; date: string; minutes: number; memo: string; feedback: string; photos: { id: string; url: string }[] };
 
-async function toEntries(rows: { id: string; studyDate: Date; minutes: number; memo: string | null; photos: { id: string; r2Key: string }[] }[], storage: Storage) {
+async function toEntries(rows: { id: string; studyDate: Date; minutes: number; memo: string | null; feedback: string | null; photos: { id: string; r2Key: string }[] }[], storage: Storage) {
   return Promise.all(
     rows.map(
       async (r): Promise<StudyEntry> => ({
@@ -245,6 +250,7 @@ async function toEntries(rows: { id: string; studyDate: Date; minutes: number; m
         date: fromDbDate(r.studyDate),
         minutes: r.minutes,
         memo: r.memo ?? "",
+        feedback: r.feedback ?? "",
         photos: await Promise.all(r.photos.map(async (p) => ({ id: p.id, url: await storage.viewUrl(p.r2Key) }))),
       }),
     ),

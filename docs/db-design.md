@@ -295,6 +295,7 @@
 | study_date | DATE | KST 날짜 |
 | minutes | SMALLINT | 5분 단위 (앱에서 검사) |
 | memo | TEXT NULL | |
+| feedback | TEXT NULL | 오늘의 피드백 (STUDY-09) |
 
 - `UNIQUE (teacher_id, id)`, `INDEX (teacher_id, student_id, study_date)`
 - 하루 여러 건. 선생님 "내 기록" = `student_id IS NULL`, 학생 화면 = `student_id = 본인`.

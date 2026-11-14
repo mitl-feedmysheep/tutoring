@@ -8,9 +8,9 @@ import { minutesText } from "@/lib/study/rules";
 import { cn } from "@/lib/utils";
 
 type Total = { minutes: number; studiedDays: number; days: number };
-type Day = { date: string; label: string; entries: { id: string; minutes: number; memo: string; photos: { id: string; url: string }[] }[] };
+type Day = { date: string; label: string; entries: { id: string; minutes: number; memo: string; feedback: string; photos: { id: string; url: string }[] }[] };
 
-// 학생 카드의 공부 기록 (STUDY-06). 합계, 달마다 날짜별 기록과 사진. 선생님은 보기만 한다
+// 학생 카드의 공부 기록 (STUDY-06, 09). 합계, 달마다 날짜별 기록과 사진. 선생님은 보기만 한다
 export function StudyRecords({
   monthLabel,
   prevHref,
@@ -79,6 +79,12 @@ export function StudyRecords({
                     <span className="shrink-0 font-medium text-emerald-700 tabular-nums">{minutesText(e.minutes)}</span>
                     <p className="min-w-0 whitespace-pre-line text-muted-foreground">{e.memo || "내용 없음"}</p>
                   </div>
+                  {e.feedback && (
+                    <div className="grid gap-0.5 text-sm">
+                      <span className="text-xs font-medium text-foreground">오늘의 피드백</span>
+                      <p className="whitespace-pre-line text-muted-foreground">{e.feedback}</p>
+                    </div>
+                  )}
                   {e.photos.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {e.photos.map((p, i) => (

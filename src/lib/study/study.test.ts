@@ -124,6 +124,20 @@ describe("기록 쓰기 (STUDY-01, 02)", () => {
     expect((await rawLogs(t.id)).filter((l) => l.deletedAt === null)).toEqual([]);
   });
 
+  it("오늘의 피드백을 쓰고 고치고 비운다. 내용처럼 정리하고 5,000자까지 (STUDY-09)", async () => {
+    const { me } = await setup();
+    const a = await saveStudyLog(me, input({ feedback: "- 관사 빠뜨림\n- " }), NOW);
+    expect((await dayEntries(me, TODAY))[0].feedback).toBe("- 관사 빠뜨림");
+    await saveStudyLog(me, input({ id: a.id, feedback: "- 고침" }), NOW);
+    expect((await dayEntries(me, TODAY))[0].feedback).toBe("- 고침");
+    await saveStudyLog(me, input({ id: a.id, feedback: "- " }), NOW);
+    expect(await prisma.studyLog.findUniqueOrThrow({ where: { id: a.id }, select: { feedback: true } })).toEqual({ feedback: null });
+    // 앞 버전 화면은 feedback을 보내지 않는다
+    await saveStudyLog(me, input({ id: a.id }), NOW);
+    await err(saveStudyLog(me, input({ feedback: "x".repeat(5001) }), NOW), "피드백은 5,000자까지 쓸 수 있어요");
+    await err(saveStudyLog(me, input({ feedback: 1 }), NOW), "잘못된 요청이에요");
+  });
+
   it("공부 시간은 5분 단위, 12시간까지, 하루 24시간까지", async () => {
     const { t, me } = await setup();
     await err(saveStudyLog(me, input({ minutes: 0 }), NOW), "공부 시간을 적어 주세요");

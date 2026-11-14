@@ -7,7 +7,7 @@ import { EntryEditor, type EntryView } from "./entry-editor";
 let seq = 0;
 
 /** 저장된 내용이 바뀌면 칸을 새로 만든다 (올린 사진이 저장된 사진으로 바뀌도록) */
-const versionOf = (e: EntryView) => `${e.id}:${e.minutes}:${e.memo}:${e.photos.map((p) => p.id).join(",")}`;
+const versionOf = (e: EntryView) => `${e.id}:${e.minutes}:${e.memo}:${e.feedback}:${e.photos.map((p) => p.id).join(",")}`;
 
 // 그날 공부 기록 화면 (APP-03). 하루 여러 건 (STUDY-01). 오늘·어제는 바로 쓰고 고친다.
 // 기록이 없으면 빈 새 기록 칸 하나로 시작한다
