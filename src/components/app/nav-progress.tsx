@@ -22,9 +22,12 @@ export function startNav() {
   listeners.forEach((l) => l());
 }
 
-/** 같은 화면으로 가는 링크, 새 창, 다른 사이트, 다운로드는 이동으로 치지 않는다 */
+/**
+ * 같은 화면으로 가는 링크, 새 창, 다른 사이트, 다운로드는 이동으로 치지 않는다.
+ * defaultPrevented는 보지 않는다: Next Link가 화면 안 이동을 하려고 늘 기본 동작을 막기 때문이다
+ */
 function isNavClick(e: MouseEvent) {
-  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return false;
+  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return false;
   const a = (e.target as Element | null)?.closest?.("a");
   if (!a || !a.href || a.hasAttribute("download") || (a.target && a.target !== "_self")) return false;
   const to = new URL(a.href, window.location.href);

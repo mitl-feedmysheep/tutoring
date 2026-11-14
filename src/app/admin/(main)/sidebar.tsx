@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, FileText, GraduationCap, KeyRound, LogOut, School, Users, Video, Wallet } from "lucide-react";
+import { BookOpen, CalendarDays, FileText, GraduationCap, KeyRound, LogOut, School, Users, Video, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/auth-actions";
 
 const NAV = [
   { name: "일정", href: "/admin/schedule", icon: CalendarDays },
   { name: "학생 관리", href: "/admin/students", icon: Users },
+  { name: "공부 기록", href: "/admin/study", icon: BookOpen },
   { name: "과외비", href: "/admin/payments", icon: Wallet },
   { name: "자료실", href: "/admin/files", icon: FileText },
   { name: "화상 수업", href: "/admin/meeting", icon: Video },
