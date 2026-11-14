@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/button";
 
 // MEET-01: "구글 계정 연결"을 누르면 바로 구글로 보내지 않고, 앞으로 나올 구글 화면에서 무엇을 누를지 먼저 보여 준다
 const STEPS = [
-  { src: "/guide/google-connect-1.png", text: "수업을 진행할 구글 계정을 골라요." },
+  { src: "/guide/google-connect-account.png", text: "수업을 진행할 구글 계정을 골라요." },
   {
-    src: "/guide/google-connect-2.png",
+    src: "/guide/google-connect-warning.png",
     text: "\"Google에서 확인하지 않은 앱\" 화면이 나오면 ① \"고급\"을 누르고 ② 아래에 나온 \"intotheheaven.app(으)로 이동(안전하지 않음)\"을 눌러요. 우리 서비스라 괜찮아요.",
   },
-  { src: "/guide/google-connect-3.png", text: "\"계속\"을 눌러요." },
+  { src: "/guide/google-connect-continue.png", text: "\"계속\"을 눌러요." },
   {
-    src: "/guide/google-connect-4.png",
+    src: "/guide/google-connect-permission.png",
     text: "① \"모든 캘린더의 일정 보기 및 수정\" 체크박스를 꼭 체크하고 ② \"계속\"을 눌러요. 체크하지 않으면 연결되지 않아요.",
     strong: true,
   },
