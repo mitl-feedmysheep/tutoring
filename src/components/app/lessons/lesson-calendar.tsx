@@ -9,7 +9,8 @@ import { ReplaceLink } from "@/components/app/nav";
 import { startNav } from "@/components/app/nav-progress";
 import { BottomSheet } from "./bottom-sheet";
 
-export type CalendarLesson = { id: string; time: string; kind: "fixed" | "booked"; past: boolean };
+/** href가 없으면(선생님) 날짜를 누를 때 그날 수업을 아래 창으로만 보여 준다. names는 참여 학생 */
+export type CalendarLesson = { id: string; time: string; kind: "fixed" | "booked"; past: boolean; href?: string; names?: string };
 
 export type CalendarView = {
   year: number;
@@ -88,9 +89,9 @@ export function LessonCalendar({ view }: { view: CalendarView }) {
             view.today === day && "font-bold text-primary shadow-[inset_0_0_0_1.5px_var(--color-primary)]",
           );
           if (lessons.length === 0) return <span key={day} className={className}>{inner}</span>;
-          if (lessons.length === 1) {
+          if (lessons.length === 1 && lessons[0].href) {
             return (
-              <Link key={day} href={`/lessons/${lessons[0].id}`} className={cn(className, "transition-colors hover:bg-accent")}>
+              <Link key={day} href={lessons[0].href} className={cn(className, "transition-colors hover:bg-accent")}>
                 {inner}
               </Link>
             );
@@ -120,21 +121,34 @@ export function LessonCalendar({ view }: { view: CalendarView }) {
 
       <BottomSheet open={picking !== null} onOpenChange={(o) => !o && setPicking(null)} title={picking ? `${view.month}/${picking} 수업` : ""}>
         <div className="flex flex-col gap-2">
-          {(picking ? (view.lessons[picking] ?? []) : []).map((l) => (
-            <button
-              key={l.id}
-              type="button"
-              onClick={() => {
-                setPicking(null);
-                startNav();
-                router.push(`/lessons/${l.id}`);
-              }}
-              className="flex items-center justify-between rounded-xl border border-border px-4 py-3 text-left text-[15px] tabular-nums hover:bg-accent/50"
-            >
-              <span>{l.time}</span>
-              <span className="text-xs font-bold text-primary">{l.past ? "지난 수업" : l.kind === "fixed" ? "고정" : "예약"}</span>
-            </button>
-          ))}
+          {(picking ? (view.lessons[picking] ?? []) : []).map((l) => {
+            const inner = (
+              <>
+                <span className="min-w-0">
+                  {l.time}
+                  {l.names && <small className="ml-2 text-[13px] text-muted-foreground">{l.names}</small>}
+                </span>
+                <span className="shrink-0 text-xs font-bold text-primary">{l.past ? "지난 수업" : l.kind === "fixed" ? "고정" : "예약"}</span>
+              </>
+            );
+            const className = "flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-3 text-left text-[15px] tabular-nums";
+            if (!l.href) return <div key={l.id} className={className}>{inner}</div>;
+            const href = l.href;
+            return (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => {
+                  setPicking(null);
+                  startNav();
+                  router.push(href);
+                }}
+                className={cn(className, "hover:bg-accent/50")}
+              >
+                {inner}
+              </button>
+            );
+          })}
         </div>
       </BottomSheet>
     </section>
