@@ -43,7 +43,7 @@ export function editableDates(now = new Date()) {
  * 임시 (2026-11-14): 선생님 본인 기록(STUDY-08)은 이날부터 쓰고 고칠 수 있다. 앱을 쓰기 전 공부 기록을 옮겨 넣으려고 연다.
  * 다 넣으면 이 변경(커밋)을 되돌려 오늘·어제만 쓰는 규칙(STUDY-02)으로 돌아간다
  */
-const TEACHER_BACKFILL_FROM = "2026-11-01";
+const TEACHER_BACKFILL_FROM = "2026-10-30";
 
 /** 이 주인이 그날 기록을 쓰고 고칠 수 있는지 */
 export function canEditDate(owner: Pick<StudyOwner, "studentId">, date: string, now = new Date()) {
