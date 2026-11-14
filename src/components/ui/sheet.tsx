@@ -43,11 +43,17 @@ function SheetOverlay({
   )
 }
 
+// 확인 창(askConfirm)은 서랍 밖에 그려진다. 그 창을 누르거나 Esc를 눌러도 서랍이 닫히지 않게 한다
+const fromConfirm = (target: EventTarget | null) => target instanceof Element && target.closest("[data-confirm-host]") !== null
+const confirmOpen = () => typeof document !== "undefined" && document.querySelector("[data-confirm-host]") !== null
+
 function SheetContent({
   className,
   children,
   side = "right",
   showCloseButton = true,
+  onInteractOutside,
+  onEscapeKeyDown,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
@@ -70,6 +76,14 @@ function SheetContent({
             "inset-x-0 bottom-0 h-auto border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
           className
         )}
+        onInteractOutside={(e) => {
+          if (fromConfirm(e.target)) return e.preventDefault()
+          onInteractOutside?.(e)
+        }}
+        onEscapeKeyDown={(e) => {
+          if (confirmOpen()) return e.preventDefault()
+          onEscapeKeyDown?.(e)
+        }}
         {...props}
       >
         {children}

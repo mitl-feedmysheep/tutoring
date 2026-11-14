@@ -61,7 +61,7 @@ export function ConfirmHost() {
 
   if (!req) return null;
   return (
-    <div className="pointer-events-auto fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => settle(false)}>
+    <div data-confirm-host className="pointer-events-auto fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => settle(false)}>
       <div
         role="alertdialog"
         aria-modal="true"

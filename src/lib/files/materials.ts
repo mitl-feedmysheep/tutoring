@@ -54,9 +54,23 @@ export function cleanFileName(raw: unknown) {
   return name.slice(0, FILE_NAME_MAX - ext.length) + ext;
 }
 
-/** FILE-01: 올린 PDF를 자료로 저장한다. R2에 실제로 있는지, 형식·크기를 확인한다 */
-export async function saveMaterial(db: ScopedDb, teacherId: string, token: unknown, fileName: unknown, storage: Storage = r2) {
-  const name = cleanFileName(fileName);
+/** 자료 설명 정리 (FILE-05). 빈 칸이면 null */
+function cleanDescription(text: unknown) {
+  if (text === undefined) return null;
+  if (typeof text !== "string") throw new ScheduleError("잘못된 요청이에요");
+  const description = text.replace(/\r\n?/g, "\n").trim();
+  if (description.length > DESCRIPTION_MAX) throw new ScheduleError(`설명은 ${DESCRIPTION_MAX.toLocaleString()}자까지 쓸 수 있어요`);
+  return description || null;
+}
+
+/**
+ * FILE-01, 05: 올린 PDF를 자료로 저장한다. R2에 실제로 있는지, 형식·크기를 확인한다.
+ * title은 선생님이 적은 제목 (file_name 칸에 넣는다), description은 학생에게 보일 설명
+ */
+export async function saveMaterial(db: ScopedDb, teacherId: string, input: { token: unknown; title: unknown; description?: unknown }, storage: Storage = r2) {
+  const { token } = input;
+  const name = cleanFileName(input.title);
+  const description = cleanDescription(input.description);
   const id = await readUploadToken(teacherId, token);
   const key = materialKey(teacherId, id);
   const head = await storage.head(key);
@@ -64,7 +78,7 @@ export async function saveMaterial(db: ScopedDb, teacherId: string, token: unkno
   if (head.contentType !== PDF_TYPE || head.size <= 0 || head.size > MATERIAL_MAX_BYTES) throw new ScheduleError("올릴 수 없는 파일이에요");
   try {
     // teacher_id는 범위 계층이 채운다. uploader_student_id NULL = 선생님이 올림
-    await db.file.create({ data: { id, kind: "MATERIAL", fileName: name, r2Key: key, contentType: PDF_TYPE, sizeBytes: head.size } as never });
+    await db.file.create({ data: { id, kind: "MATERIAL", fileName: name, description, r2Key: key, contentType: PDF_TYPE, sizeBytes: head.size } as never });
   } catch (e) {
     if (isUniqueError(e)) throw new ScheduleError("이미 저장한 자료예요. 화면을 새로 고쳐 주세요");
     throw e;
@@ -86,6 +100,17 @@ export async function listMaterials(db: ScopedDb): Promise<MaterialRow[]> {
     select: { id: true, fileName: true, sizeBytes: true, description: true, createdAt: true, _count: { select: { accesses: { where: ACTIVE_STUDENT } } } },
   });
   return rows.map(({ _count, ...r }) => ({ ...r, shared: _count.accesses }));
+}
+
+/** 자료실 목록 옆 공유 창: 활성 학생(이름 순)과 자료마다 공개한 학생과 공개한 때 */
+export async function materialAccessBoard(db: ScopedDb) {
+  const [students, accesses] = await Promise.all([
+    db.student.findMany({ where: { deactivatedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.fileAccess.findMany({ where: { file: { kind: "MATERIAL" }, ...ACTIVE_STUDENT }, select: { fileId: true, studentId: true, updatedAt: true } }),
+  ]);
+  const shared: Record<string, Record<string, Date>> = {};
+  for (const a of accesses) (shared[a.fileId] ??= {})[a.studentId] = a.updatedAt;
+  return { students, shared };
 }
 
 /** 자료 하나와 활성 학생마다 공개 여부 (이름 순). 없으면 null */
@@ -129,13 +154,13 @@ export async function setMaterialAccess(db: ScopedDb, fileId: unknown, studentId
   });
 }
 
-/** FILE-05: 학생에게 보일 설명(링크·참고 글). 빈 칸이면 지운다 */
-export async function setMaterialDescription(db: ScopedDb, fileId: unknown, text: unknown) {
+/** FILE-05: 제목과 학생에게 보일 설명(링크·참고 글)을 고친다. 설명이 빈 칸이면 지운다 */
+export async function updateMaterial(db: ScopedDb, fileId: unknown, input: { title: unknown; description: unknown }) {
   const id = checkId(fileId);
-  if (typeof text !== "string") throw new ScheduleError("잘못된 요청이에요");
-  const description = text.replace(/\r\n?/g, "\n").trim();
-  if (description.length > DESCRIPTION_MAX) throw new ScheduleError(`설명은 ${DESCRIPTION_MAX.toLocaleString()}자까지 쓸 수 있어요`);
-  const { count } = await db.file.updateMany({ where: { id, kind: "MATERIAL" }, data: { description: description || null } });
+  if (typeof input.description !== "string") throw new ScheduleError("잘못된 요청이에요");
+  const fileName = cleanFileName(input.title);
+  const description = cleanDescription(input.description);
+  const { count } = await db.file.updateMany({ where: { id, kind: "MATERIAL" }, data: { fileName, description } });
   if (count === 0) throw new ScheduleError("없는 자료예요");
 }
 
@@ -167,5 +192,6 @@ export async function materialViewUrl(db: ScopedDb, fileId: string, storage: Sto
   if (!ID.test(fileId)) return null;
   const file = await db.file.findFirst({ where: { id: fileId, kind: "MATERIAL" }, select: { r2Key: true, fileName: true } });
   if (!file) return null;
-  return storage.viewUrl(file.r2Key, file.fileName);
+  // 제목에 .pdf가 없어도 저장할 때 PDF로 받게
+  return storage.viewUrl(file.r2Key, /\.pdf$/i.test(file.fileName) ? file.fileName : `${file.fileName}.pdf`);
 }

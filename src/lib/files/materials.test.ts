@@ -14,7 +14,8 @@ import {
   prepareMaterialUpload,
   saveMaterial,
   setMaterialAccess,
-  setMaterialDescription,
+  updateMaterial,
+  materialAccessBoard,
 } from "./materials";
 import { MATERIAL_MAX_BYTES, PDF_TYPE } from "./rules";
 
@@ -56,7 +57,7 @@ async function setup() {
   const upload = async (name = "Unit 1.pdf") => {
     const { token } = await prepareMaterialUpload(t.id, 1000, fake.storage);
     fake.upload();
-    return (await saveMaterial(db, t.id, token, name, fake.storage)).id;
+    return (await saveMaterial(db, t.id, { token, title: name }, fake.storage)).id;
   };
   return { t, a, b, db, fake, upload, adb: studentDb(t.id, a.id), bdb: studentDb(t.id, b.id) };
 }
@@ -73,23 +74,23 @@ describe("올리기 (FILE-01)", () => {
   it("올리지 않았거나 PDF가 아니거나 너무 큰 파일, 남의 표는 거절한다", async () => {
     const { t, db, fake } = await setup();
     const p1 = await prepareMaterialUpload(t.id, 1000, fake.storage);
-    await err(saveMaterial(db, t.id, p1.token, "a.pdf", fake.storage), "PDF를 올리지 못했어요. 다시 올려 주세요");
+    await err(saveMaterial(db, t.id, { token: p1.token, title: "a.pdf" }, fake.storage), "PDF를 올리지 못했어요. 다시 올려 주세요");
     fake.upload(1000, "image/png");
-    await err(saveMaterial(db, t.id, p1.token, "a.pdf", fake.storage), "올릴 수 없는 파일이에요");
+    await err(saveMaterial(db, t.id, { token: p1.token, title: "a.pdf" }, fake.storage), "올릴 수 없는 파일이에요");
 
     await err(prepareMaterialUpload(t.id, MATERIAL_MAX_BYTES + 1, fake.storage), "PDF는 50MB까지 올릴 수 있어요");
     const p2 = await prepareMaterialUpload(t.id, 1000, fake.storage);
     fake.upload(MATERIAL_MAX_BYTES + 1);
-    await err(saveMaterial(db, t.id, p2.token, "a.pdf", fake.storage), "올릴 수 없는 파일이에요");
+    await err(saveMaterial(db, t.id, { token: p2.token, title: "a.pdf" }, fake.storage), "올릴 수 없는 파일이에요");
 
     // 다른 선생님 표, 고친 표, 같은 표 두 번
     const t2 = await newTeacher();
     const p3 = await prepareMaterialUpload(t2.id, 1000, fake.storage);
     fake.upload();
-    await err(saveMaterial(db, t.id, p3.token, "a.pdf", fake.storage), "PDF를 다시 올려 주세요");
-    await err(saveMaterial(db, t.id, p3.token + "x", "a.pdf", fake.storage), "PDF를 다시 올려 주세요");
-    await saveMaterial(teacherDb(t2.id), t2.id, p3.token, "a.pdf", fake.storage);
-    await err(saveMaterial(teacherDb(t2.id), t2.id, p3.token, "a.pdf", fake.storage), "이미 저장한 자료예요. 화면을 새로 고쳐 주세요");
+    await err(saveMaterial(db, t.id, { token: p3.token, title: "a.pdf" }, fake.storage), "PDF를 다시 올려 주세요");
+    await err(saveMaterial(db, t.id, { token: p3.token + "x", title: "a.pdf" }, fake.storage), "PDF를 다시 올려 주세요");
+    await saveMaterial(teacherDb(t2.id), t2.id, { token: p3.token, title: "a.pdf" }, fake.storage);
+    await err(saveMaterial(teacherDb(t2.id), t2.id, { token: p3.token, title: "a.pdf" }, fake.storage), "이미 저장한 자료예요. 화면을 새로 고쳐 주세요");
   });
 
   it("파일 이름을 정리한다", () => {
@@ -157,28 +158,52 @@ describe("설명 (FILE-05)", () => {
   it("설명을 쓰고 고치고 지운다. 공개한 학생에게 같이 보인다. 2,000자까지", async () => {
     const { a, db, adb, upload } = await setup();
     const id = await upload();
-    await setMaterialDescription(db, id, "  3과까지 읽고 오세요\r\n참고 https://example.com  ");
+    await updateMaterial(db, id, { title: "Unit 1", description: "  3과까지 읽고 오세요\r\n참고 https://example.com  " });
     expect((await materialDetail(db, id))!.file.description).toBe("3과까지 읽고 오세요\n참고 https://example.com");
     expect((await listMaterials(db))[0].description).toBe("3과까지 읽고 오세요\n참고 https://example.com");
 
     await setMaterialAccess(db, id, [a.id]);
     expect(await myMaterials(adb)).toMatchObject([{ id, description: "3과까지 읽고 오세요\n참고 https://example.com" }]);
 
-    await setMaterialDescription(db, id, "   ");
+    await updateMaterial(db, id, { title: "Unit 1", description: "   " });
     expect((await materialDetail(db, id))!.file.description).toBeNull();
 
-    await err(setMaterialDescription(db, id, "x".repeat(2001)), "설명은 2,000자까지 쓸 수 있어요");
-    await err(setMaterialDescription(db, id, 1), "잘못된 요청이에요");
+    await err(updateMaterial(db, id, { title: "Unit 1", description: "x".repeat(2001) }), "설명은 2,000자까지 쓸 수 있어요");
+    await err(updateMaterial(db, id, { title: "Unit 1", description: 1 }), "잘못된 요청이에요");
   });
 
   it("다른 선생님과 학생은 설명을 고치지 못한다", async () => {
     const { adb, db, upload } = await setup();
     const id = await upload();
-    await setMaterialDescription(db, id, "원래 설명");
+    await updateMaterial(db, id, { title: "원래 제목", description: "원래 설명" });
     const t2 = await newTeacher();
-    await err(setMaterialDescription(teacherDb(t2.id), id, "바꿈"), "없는 자료예요");
-    await expect(setMaterialDescription(adb, id, "바꿈")).rejects.toThrow();
-    expect((await materialDetail(db, id))!.file.description).toBe("원래 설명");
+    await err(updateMaterial(teacherDb(t2.id), id, { title: "바꿈", description: "바꿈" }), "없는 자료예요");
+    await expect(updateMaterial(adb, id, { title: "바꿈", description: "바꿈" })).rejects.toThrow();
+    expect((await materialDetail(db, id))!.file).toMatchObject({ fileName: "원래 제목", description: "원래 설명" });
+  });
+});
+
+describe("제목·설명을 올릴 때 같이 (FILE-05)", () => {
+  it("올리면서 제목과 설명을 저장하고, 제목을 고친다. 열 때는 .pdf 이름으로 받는다", async () => {
+    const { t, db, fake } = await setup();
+    const { token } = await prepareMaterialUpload(t.id, 1000, fake.storage);
+    fake.upload();
+    const { id } = await saveMaterial(db, t.id, { token, title: "  Unit 2 듣기  ", description: "- 2번 트랙까지\n" }, fake.storage);
+    expect((await materialDetail(db, id))!.file).toMatchObject({ fileName: "Unit 2 듣기", description: "- 2번 트랙까지" });
+    await updateMaterial(db, id, { title: "Unit 2", description: "" });
+    expect((await materialDetail(db, id))!.file).toMatchObject({ fileName: "Unit 2", description: null });
+    expect(await materialViewUrl(db, id, fake.storage)).toContain("Unit 2.pdf");
+  });
+
+  it("공유 창: 활성 학생과 자료마다 공개한 학생. 다른 선생님 것은 안 보인다", async () => {
+    const { a, b, db, upload } = await setup();
+    const id = await upload();
+    await setMaterialAccess(db, id, [b.id]);
+    const board = await materialAccessBoard(db);
+    expect(board.students.map((s) => s.id)).toEqual([a.id, b.id]);
+    expect(Object.keys(board.shared[id])).toEqual([b.id]);
+    const t2 = await newTeacher();
+    expect(await materialAccessBoard(teacherDb(t2.id))).toEqual({ students: [], shared: {} });
   });
 });
 

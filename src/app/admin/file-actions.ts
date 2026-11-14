@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireTeacher } from "@/lib/auth/session";
-import { deleteMaterial, prepareMaterialUpload, saveMaterial, setMaterialAccess, setMaterialDescription } from "@/lib/files/materials";
+import { deleteMaterial, prepareMaterialUpload, saveMaterial, setMaterialAccess, updateMaterial } from "@/lib/files/materials";
 import { ScheduleError } from "@/lib/schedule/teacher";
 import type { ActionResult } from "@/app/lesson-actions";
 
@@ -27,9 +27,9 @@ export async function prepareMaterialUploadAction(size: number) {
 }
 
 /** R2에 올린 뒤 표를 돌려주면 자료로 저장한다 */
-export async function saveMaterialAction(token: string, fileName: string) {
+export async function saveMaterialAction(token: string, title: string, description: string) {
   const { db, teacherId } = await requireTeacher();
-  return run(() => saveMaterial(db, teacherId, token, fileName));
+  return run(() => saveMaterial(db, teacherId, { token, title, description }));
 }
 
 export async function setMaterialAccessAction(fileId: string, studentIds: string[]) {
@@ -40,10 +40,10 @@ export async function setMaterialAccessAction(fileId: string, studentIds: string
   });
 }
 
-export async function setMaterialDescriptionAction(fileId: string, text: string) {
+export async function updateMaterialAction(fileId: string, title: string, description: string) {
   const { db } = await requireTeacher();
   return run(async () => {
-    await setMaterialDescription(db, fileId, text);
+    await updateMaterial(db, fileId, { title, description });
     return {};
   });
 }
