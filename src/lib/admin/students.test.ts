@@ -54,7 +54,7 @@ describe("학생 비활성화 (ADMIN-04)", () => {
     await expect(deactivateStudent(db, s.id, MID_DEC)).rejects.toThrow("없는 학생");
   });
 
-  it("다시 활성화하면 원래 이메일로 돌아오고, 비활성화 때 취소된 수업과 그동안 만든 고정 수업이 다시 잡힌다. 직접 취소한 수업은 그대로", async () => {
+  it("다시 활성화하면 원래 이메일로 돌아오고 일정은 빈 채로 시작한다. 고정 일정은 끝나고(이력은 자동), 취소된 수업은 되살리지 않는다", async () => {
     const { db, s, email } = await setup();
     const w = await createWeeklySlot(db, TUE_19, kstToUtc(2026, 12, 1, 0));
     const wl = await db.weeklyLesson.create({ data: { weeklySlotId: w.id, studentId: s.id } as never });
@@ -76,9 +76,18 @@ describe("학생 비활성화 (ADMIN-04)", () => {
     await reactivateStudent(db, s.id, later);
     expect(await studentProfile(db, s.id)).toMatchObject({ email, deactivatedAt: null });
     expect((await prisma.student.findUniqueOrThrow({ where: { id: s.id } })).email).toBe(email);
-    const rows = await lessonsOf(s.id);
-    expect(rows.slice(0, 6)).toEqual([[1, true], [8, true], [15, false], [17, false], [22, false], [29, true]]);
-    expect(rows.slice(6)).toEqual([[5, true], [12, true], [19, true], [26, true]]); // 1월 고정 수업
+    // 비활성화 때 취소된 수업은 그대로 취소, 1월 수업도 없다
+    expect(await lessonsOf(s.id)).toEqual([[1, true], [8, true], [15, false], [17, false], [22, false], [29, false]]);
+    expect(await db.weeklyLesson.count({ where: { studentId: s.id } })).toBe(0);
+    expect(await prisma.weeklyLesson.findUniqueOrThrow({ where: { id: wl.id } })).toMatchObject({ deletedAt: later });
+    expect(await listWeeklySlots(db)).toMatchObject([{ students: [] }]);
+    expect(await prisma.scheduleChange.findMany({ where: { studentId: s.id, weeklyLessonId: wl.id }, select: { action: true, beforeText: true, changedBy: true } })).toEqual([
+      { action: "REMOVE", beforeText: expect.stringContaining("화"), changedBy: "SYSTEM" },
+    ]);
+
+    // 다음 달을 만들어도 예전 고정 일정으로 수업이 생기지 않는다
+    await generateMonth(db, { year: 2027, month: 2 }, kstToUtc(2027, 1, 31, 30));
+    expect(await prisma.lesson.count({ where: { studentId: s.id, slot: { startsAt: { gte: kstToUtc(2027, 1, 1, 0) } } } })).toBe(0);
   });
 
   it("같은 이메일로 새 계정이 있으면 다시 활성화할 수 없다", async () => {

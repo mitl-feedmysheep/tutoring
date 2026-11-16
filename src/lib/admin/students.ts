@@ -1,6 +1,7 @@
 import type { ScopedDb } from "@/lib/db/scope";
 import { isEmailTaken } from "@/lib/auth/accounts";
 import { hashPassword } from "@/lib/auth/password";
+import { weeklyText } from "@/lib/schedule/kst";
 import { isUniqueError } from "@/lib/schedule/student";
 import { ScheduleError } from "@/lib/schedule/teacher";
 
@@ -67,7 +68,7 @@ export async function setOccupation(db: ScopedDb, studentId: unknown, value: unk
 
 /**
  * ADMIN-04: 비활성화. 로그인이 바로 끊기고, 앞으로의 수업은 취소된다 (이미 시작한 수업은 그대로).
- * 고정 일정은 남겨 두고 월말 생성에서만 빠진다. 다시 활성화하면 이어진다.
+ * 고정 일정은 비활성 동안 남겨 두고(학생 카드에서 볼 수 있게) 월말 생성에서만 빠진다. 다시 활성화할 때 끝낸다.
  * 이메일 뒤에 표시를 붙여 같은 이메일로 새 계정을 만들 수 있게 한다. 취소한 수업 수를 돌려준다
  */
 export async function deactivateStudent(db: ScopedDb, studentId: unknown, now = new Date()) {
@@ -89,8 +90,8 @@ export async function deactivateStudent(db: ScopedDb, studentId: unknown, now = 
 
 /**
  * ADMIN-04: 다시 활성화. 원래 이메일로 돌린다. 그 이메일로 새 계정이 이미 있으면 막는다.
- * 비활성화 때 함께 취소된 앞으로의 수업을 되살리고, 비활성 동안 만들어진 고정 시간 슬롯에는 수업을 새로 잡는다.
- * 학생이 그 전에 직접 취소한 수업은 그대로 둔다
+ * 오랜만에 돌아온 학생이라 일정은 비운 채로 시작한다: 예전 고정 일정은 끝내고(이력에 "자동"으로 남김),
+ * 비활성화 때 취소된 수업도 되살리지 않는다. 일정은 학생이나 선생님이 새로 잡는다
  */
 export async function reactivateStudent(db: ScopedDb, studentId: unknown, now = new Date()) {
   const id = checkId(studentId);
@@ -101,17 +102,16 @@ export async function reactivateStudent(db: ScopedDb, studentId: unknown, now = 
       const email = originalEmail(s.email);
       if (await isEmailTaken(email)) throw new ScheduleError("이 이메일로 가입한 다른 계정이 있어서 다시 활성화할 수 없어요");
       await tx.student.update({ where: { id: s.id }, data: { deactivatedAt: null, email } });
-      await tx.lesson.updateMany({
-        where: { studentId: s.id, canceledAt: s.deactivatedAt, slot: { startsAt: { gt: now }, deletedAt: null } },
-        data: { canceledAt: null },
-      });
 
-      const weekly = await tx.weeklyLesson.findMany({ where: { studentId: s.id }, select: { id: true, weeklySlotId: true } });
+      const weekly = await tx.weeklyLesson.findMany({
+        where: { studentId: s.id },
+        select: { id: true, weeklySlot: { select: { weekday: true, startMinute: true, endMinute: true } } },
+      });
       for (const wl of weekly) {
-        const slots = await tx.slot.findMany({ where: { weeklySlotId: wl.weeklySlotId, startsAt: { gt: now } }, select: { id: true } });
-        if (slots.length === 0) continue;
-        // 이미 수업 행이 있는 슬롯(직접 취소한 것 포함)은 건너뛴다 (slot·student는 UNIQUE)
-        await tx.lesson.createMany({ data: slots.map((x) => ({ slotId: x.id, studentId: s.id, weeklyLessonId: wl.id })) as never, skipDuplicates: true });
+        await tx.weeklyLesson.update({ where: { id: wl.id }, data: { deletedAt: now } });
+        await tx.scheduleChange.create({
+          data: { studentId: s.id, weeklyLessonId: wl.id, action: "REMOVE", beforeText: weeklyText(wl.weeklySlot), changedBy: "SYSTEM", reason: "다시 활성화해서 일정을 비움" } as never,
+        });
       }
     });
   } catch (e) {

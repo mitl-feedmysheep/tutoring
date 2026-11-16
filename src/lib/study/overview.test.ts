@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/client";
 import { teacherDb } from "@/lib/db/scope";
 import { kstToUtc } from "@/lib/schedule/kst";
-import { daysAgo, studyOverview } from "./overview";
+import { daysAgo, studyOverview as overview } from "./overview";
 import { toDbDate } from "./study";
 
 afterAll(() => prisma.$disconnect());
@@ -20,6 +20,9 @@ async function newStudent(teacherId: string, name: string, createdAt: Date, deac
     data: { teacherId, name, birthYear: 1990, gender: "FEMALE", email: `so-${randomUUID().slice(0, 8)}@test.local`, passwordHash: "x", createdAt, deactivatedAt },
   });
 }
+
+/** 학생 줄만 (맨 위 선생님 본인 줄은 따로 본다) */
+const studyOverview = async (...args: Parameters<typeof overview>) => (await overview(...args)).filter((r) => r.id !== null);
 
 const log = (teacherId: string, studentId: string | null, date: string, minutes = 30, deletedAt?: Date) =>
   prisma.studyLog.create({ data: { teacherId, studentId, studyDate: toDbDate(date), minutes, deletedAt } });
@@ -39,6 +42,8 @@ describe("어드민 공부 기록 (STUDY-10)", () => {
     expect(row.days.slice(0, 11)).toEqual([45, 0, 0, 0, 0, 0, 0, 30, 60, 0, null]);
     expect(row.days).toHaveLength(31);
     expect(row).toMatchObject({ monthMinutes: 135, studiedDays: 3, countedDays: 10, lastDate: "2026-12-09" });
+    // 누적: 11/1 가입 ~ 12/10 = 40일, 11/30 포함 4일
+    expect(row.total).toEqual({ minutes: 165, studiedDays: 4, days: 40 });
     // 오늘 아직 안 했으면 어제까지 이어진 것을 센다
     expect(row.streak).toBe(2);
     expect(daysAgo("2026-12-09", NOW)).toBe(1);
@@ -71,19 +76,37 @@ describe("어드민 공부 기록 (STUDY-10)", () => {
     expect(rows.map((r) => r.id)).toEqual([s.id]);
     expect(rows[0].days.slice(0, 6)).toEqual([null, null, null, null, 0, 0]);
     expect(rows[0]).toMatchObject({ countedDays: 6, studiedDays: 0, streak: 0, lastDate: null });
+    expect(rows[0].total).toEqual({ minutes: 0, studiedDays: 0, days: 6 });
   });
 
-  it("선생님 본인 기록은 넣지 않고, 다른 선생님의 학생·기록은 보이지 않는다", async () => {
+  it("맨 위에 선생님 본인 줄. 선생님이 만든 날보다 앞선 옮겨 넣은 기록도 센다", async () => {
+    const t = await prisma.teacher.create({ data: { name: "박선생", email: `to-${randomUUID().slice(0, 8)}@test.local`, passwordHash: "x", createdAt: kstToUtc(2026, 12, 5) } });
+    await newStudent(t.id, "가", kstToUtc(2026, 11, 1));
+    await log(t.id, null, "2026-12-03");
+    await log(t.id, null, "2026-12-09", 50);
+    await log(t.id, null, "2026-12-10", 40);
+
+    const rows = await overview(teacherDb(t.id), DEC, NOW);
+    expect(rows.map((r) => r.name)).toEqual(["박선생", "가"]);
+    expect(rows[0]).toMatchObject({ id: null, monthMinutes: 120, studiedDays: 3, countedDays: 8, streak: 2, lastDate: "2026-12-10" });
+    expect(rows[0].days.slice(0, 4)).toEqual([null, null, 30, 0]);
+    expect(rows[0].total).toEqual({ minutes: 120, studiedDays: 3, days: 8 });
+    // 학생 줄에는 선생님 기록이 섞이지 않는다
+    expect(rows[1]).toMatchObject({ studiedDays: 0, lastDate: null });
+  });
+
+  it("다른 선생님의 학생·기록(선생님 본인 기록 포함)은 보이지 않는다", async () => {
     const t = await newTeacher();
     const other = await newTeacher();
     const s = await newStudent(t.id, "가", kstToUtc(2026, 11, 1));
     const x = await newStudent(other.id, "남의 학생", kstToUtc(2026, 11, 1));
-    await log(t.id, null, "2026-12-09"); // 선생님 본인 기록
+    await log(other.id, null, "2026-12-09"); // 다른 선생님 본인 기록
     await log(other.id, x.id, "2026-12-09");
 
     const rows = await studyOverview(teacherDb(t.id), DEC, NOW);
     expect(rows.map((r) => r.id)).toEqual([s.id]);
     expect(rows[0]).toMatchObject({ studiedDays: 0, lastDate: null });
+    expect((await overview(teacherDb(t.id), DEC, NOW))[0]).toMatchObject({ id: null, studiedDays: 0, lastDate: null });
     expect((await studyOverview(teacherDb(other.id), DEC, NOW)).map((r) => r.id)).toEqual([x.id]);
   });
 });

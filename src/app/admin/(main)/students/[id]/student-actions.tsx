@@ -81,7 +81,7 @@ export function DeactivateButton({ studentId, name }: { studentId: string; name:
           title: `${name} 학생을 비활성화할까요?`,
           description:
             "- 학생은 바로 로그아웃되고 로그인할 수 없어요.\n" +
-            "- 앞으로 잡힌 수업은 모두 취소돼요. 고정 일정은 남지만 새 수업은 만들어지지 않아요.\n" +
+            "- 앞으로 잡힌 수업은 모두 취소되고, 고정 일정으로 새 수업이 만들어지지 않아요.\n" +
             "- 기록은 남고, 학생 목록 아래 '비활성 학생'에서 다시 활성화할 수 있어요.",
           confirmLabel: "비활성화",
           destructive: true,
@@ -107,7 +107,7 @@ export function ReactivateButton({ studentId, name }: { studentId: string; name:
       size="sm"
       disabled={pending}
       onClick={async () => {
-        const ok = await askConfirm({ title: `${name} 학생을 다시 활성화할까요?`, description: "비활성화 때 취소된 수업과 고정 일정이 다시 잡혀요.", confirmLabel: "다시 활성화" });
+        const ok = await askConfirm({ title: `${name} 학생을 다시 활성화할까요?`, description: "일정은 빈 채로 시작해요. 예전 고정 일정과 취소된 수업은 되살리지 않으니, 학생이 새로 예약하거나 선생님이 잡아 주세요.", confirmLabel: "다시 활성화" });
         if (!ok) return;
         start(async () => {
           const r = await reactivateStudentAction(studentId);

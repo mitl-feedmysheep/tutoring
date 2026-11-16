@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "공부 기록" };
 /** 마지막 기록이 이만큼(일) 지나면 눈에 띄게 */
 const STALE_DAYS = 3;
 
-// 어드민 공부 기록 (STUDY-10). 학생마다 그 달 하루하루 공부했는지, 연속 며칠째인지, 마지막 기록이 언제인지
+// 어드민 공부 기록 (STUDY-10). 맨 위 선생님 본인, 그 아래 학생마다 그 달 하루하루 공부했는지, 연속 며칠째인지, 마지막 기록이 언제인지
 export default async function StudyOverviewPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const { db } = await requireTeacher();
   const now = new Date();
@@ -58,12 +58,12 @@ export default async function StudyOverviewPage({ searchParams }: { searchParams
           <span className="flex items-center gap-1">
             <span className="size-3 rounded-sm bg-slate-200" /> 안 함
           </span>
-          <span>연속·마지막 기록은 오늘 기준</span>
+          <span>연속·마지막 기록·누적은 오늘 기준</span>
         </p>
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">이 달에 공부 기록을 볼 학생이 없어요.</p>
+        <p className="text-sm text-muted-foreground">공부 기록을 볼 사람이 없어요.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border bg-background">
           <table className="w-full border-collapse text-sm">
@@ -72,6 +72,7 @@ export default async function StudyOverviewPage({ searchParams }: { searchParams
                 <th className="sticky left-0 z-10 bg-background px-3 py-2 text-left font-medium">이름</th>
                 <th className="px-3 py-2 text-right font-medium whitespace-nowrap">연속</th>
                 <th className="px-3 py-2 text-right font-medium whitespace-nowrap">마지막 기록</th>
+                <th className="px-3 py-2 text-right font-medium whitespace-nowrap">누적</th>
                 <th className="px-3 py-2 text-right font-medium whitespace-nowrap">이 달</th>
                 {Array.from({ length: dayCount }, (_, i) => {
                   const w = weekday(i + 1);
@@ -97,17 +98,29 @@ export default async function StudyOverviewPage({ searchParams }: { searchParams
               {rows.map((r) => {
                 const ago = r.lastDate ? daysAgo(r.lastDate, now) : null;
                 return (
-                  <tr key={r.id} className="border-b last:border-b-0">
-                    <td className="sticky left-0 z-10 bg-background px-3 py-2.5 font-medium whitespace-nowrap">
-                      <Link href={`/admin/students/${r.id}?study=${monthKey(ym)}#study`} className="text-emerald-700 hover:underline">
-                        {r.name}
-                      </Link>
+                  <tr key={r.id ?? "me"} className={cn("border-b last:border-b-0", r.id === null && "bg-muted/40")}>
+                    <td className={cn("sticky left-0 z-10 px-3 py-2.5 font-medium whitespace-nowrap", r.id === null ? "bg-muted" : "bg-background")}>
+                      {r.id === null ? (
+                        <span>
+                          {r.name} <span className="text-xs font-normal text-muted-foreground">(나)</span>
+                        </span>
+                      ) : (
+                        <Link href={`/admin/students/${r.id}?study=${monthKey(ym)}#study`} className="text-emerald-700 hover:underline">
+                          {r.name}
+                        </Link>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap tabular-nums">
                       {r.streak > 0 ? <b className="font-semibold text-emerald-700">{r.streak}일째</b> : <span className="text-muted-foreground">-</span>}
                     </td>
                     <td className={cn("px-3 py-2.5 text-right whitespace-nowrap tabular-nums", ago !== null && ago >= STALE_DAYS ? "font-medium text-rose-600" : "text-muted-foreground")}>
                       {ago === null ? <span className="font-medium text-rose-600">없음</span> : ago === 0 ? "오늘" : ago === 1 ? "어제" : `${ago}일 전`}
+                    </td>
+                    <td className="px-3 py-2.5 text-right whitespace-nowrap tabular-nums">
+                      <span className="font-medium">
+                        {r.total.days}일 중 {r.total.studiedDays}일
+                      </span>
+                      <span className="block text-xs text-muted-foreground">{minutesText(r.total.minutes)}</span>
                     </td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap tabular-nums">
                       <span className="font-medium">
