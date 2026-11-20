@@ -1,7 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 /** 로그인·가입·비밀번호 변경 화면 공통 틀. 모바일 우선. 위에 앱 아이콘(곰)과 이름 */
-export function AuthCard({ title, description, children }: { title: string; description?: React.ReactNode; children: React.ReactNode }) {
+/** footer: 카드 아래에 두는 것 (웹앱 로그인의 "앱 둘러보기") */
+export function AuthCard({ title, description, footer, children }: { title: string; description?: React.ReactNode; footer?: React.ReactNode; children: React.ReactNode }) {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-muted/40 px-4 py-10">
       <div className="flex flex-col items-center gap-2">
@@ -16,6 +17,7 @@ export function AuthCard({ title, description, children }: { title: string; desc
         </CardHeader>
         <CardContent>{children}</CardContent>
       </Card>
+      {footer}
     </main>
   );
 }

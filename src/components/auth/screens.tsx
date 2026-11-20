@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AuthCard } from "@/components/auth/auth-card";
 import { SubScreen } from "@/components/app/screens";
 import { LoginForm } from "@/components/auth/login-form";
+import { AppTour } from "@/components/tour/app-tour";
 import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import { logoutAction } from "@/app/auth-actions";
 import { AREA_PATHS, getAccount, homePath, type Area } from "@/lib/auth/session";
@@ -16,6 +17,7 @@ export async function LoginScreen({ area }: { area: Area }) {
     <AuthCard
       title={area === "admin" ? "선생님 어드민" : "로그인"}
       description={area === "admin" ? "선생님 계정으로 로그인해 주세요." : "이메일과 비밀번호로 로그인해 주세요."}
+      footer={area === "app" && <AppTour />}
     >
       <LoginForm area={area} />
       {area === "app" && <p className="mt-6 text-center text-xs text-muted-foreground">비밀번호를 잊었으면 선생님께 초기화를 요청해 주세요.</p>}
